@@ -63,16 +63,4 @@ Use these details to log in for the first time:
 
 ---
 
-## ❓ Troubleshooting
-
-**"I can't login!"**
-- Make sure the app is fully running (`docker-compose ps`).
-- Try refreshing the page.
-
-**"The page is blank?"**
-- Wait a few seconds for the server to start up.
-- Check logs with: `docker-compose logs -f`
-
----
-
 *Enjoy managing your network!* 🚀
