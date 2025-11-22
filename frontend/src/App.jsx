@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './index';
 import {
     Search, Edit2, Trash2, Check, X, Activity, Plus, LogOut, Users,
-    Server, RefreshCw, Save, AlertCircle, MoreVertical, CheckSquare, Square
+    Server, RefreshCw, Save, AlertCircle, MoreVertical, CheckSquare, Square,
+    Lock, Shield, Power, Key
 } from 'lucide-react';
 
 const Login = () => {
@@ -55,11 +56,84 @@ const Login = () => {
     );
 };
 
+const ChangePasswordModal = ({ isOpen, onClose, onSave, title, requireOldPassword }) => {
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError('Password must be at least 6 characters');
+            return;
+        }
+        onSave({ oldPassword, newPassword });
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3>{title || 'Change Password'}</h3>
+                    <button onClick={onClose}><X size={24} /></button>
+                </div>
+                <div className="modal-body">
+                    {error && <div className="error-msg">{error}</div>}
+                    <form onSubmit={handleSubmit}>
+                        {requireOldPassword && (
+                            <div className="form-group">
+                                <label>Old Password</label>
+                                <input
+                                    type="password"
+                                    value={oldPassword}
+                                    onChange={e => setOldPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        )}
+                        <div className="form-group">
+                            <label>New Password</label>
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Confirm Password</label>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button type="button" onClick={onClose} className="btn-cancel">Cancel</button>
+                            <button type="submit" className="btn-save"><Save size={16} /> Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const UserManagement = () => {
     const { user } = useAuth();
     const [users, setUsers] = useState([]);
     const [form, setForm] = useState({ username: '', password: '', role: 'readonly' });
     const [msg, setMsg] = useState('');
+
+    const [passwordModalUser, setPasswordModalUser] = useState(null);
 
     useEffect(() => {
         fetchUsers();
@@ -103,6 +177,37 @@ const UserManagement = () => {
         fetchUsers();
     };
 
+    const handleToggleStatus = async (id, currentStatus) => {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/users/${id}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ is_active: !currentStatus })
+        });
+        if (res.ok) fetchUsers();
+    };
+
+    const handlePasswordReset = async ({ newPassword }) => {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/users/${passwordModalUser.id}/password`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ password: newPassword })
+        });
+        if (res.ok) {
+            setPasswordModalUser(null);
+            alert('Password updated successfully');
+        } else {
+            alert('Failed to update password');
+        }
+    };
+
     return (
         <div className="card">
             <h2><Users size={20} style={{ marginRight: '10px' }} /> User Management</h2>
@@ -133,15 +238,42 @@ const UserManagement = () => {
             <div className="user-list">
                 {users.map(u => (
                     <div key={u.id} className="user-item">
-                        <span>{u.username} ({u.role})</span>
-                        {u.username !== 'admin' && u.id !== user.id && (
-                            <button className="btn-delete" onClick={() => handleDelete(u.id)}>
-                                <Trash2 size={16} /> Remove
-                            </button>
-                        )}
+                        <div className="user-info">
+                            <span className={!u.is_active ? 'disabled-user' : ''}>{u.username} ({u.role})</span>
+                            {!u.is_active && <span className="badge-disabled">Disabled</span>}
+                        </div>
+                        <div className="user-actions">
+                            {u.username !== 'admin' && u.id !== user.id && (
+                                <>
+                                    <button
+                                        className={`btn-toggle ${u.is_active ? 'active' : 'inactive'}`}
+                                        onClick={() => handleToggleStatus(u.id, u.is_active)}
+                                        title={u.is_active ? "Disable Login" : "Enable Login"}
+                                    >
+                                        <Power size={16} />
+                                    </button>
+                                    <button
+                                        className="btn-edit"
+                                        onClick={() => setPasswordModalUser(u)}
+                                        title="Change Password"
+                                    >
+                                        <Key size={16} />
+                                    </button>
+                                    <button className="btn-delete" onClick={() => handleDelete(u.id)}>
+                                        <Trash2 size={16} />
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
+            <ChangePasswordModal
+                isOpen={!!passwordModalUser}
+                onClose={() => setPasswordModalUser(null)}
+                onSave={handlePasswordReset}
+                title={`Reset Password for ${passwordModalUser?.username}`}
+            />
         </div>
     );
 };
@@ -335,6 +467,26 @@ export default function App() {
     const [tabs, setTabs] = useState([{ id: 'all', name: 'All IPs' }]);
     const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0 });
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [showMyAccount, setShowMyAccount] = useState(false);
+
+    const handleUpdateOwnPassword = async ({ oldPassword, newPassword }) => {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/profile/password', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ oldPassword, newPassword })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            setShowMyAccount(false);
+            alert('Password updated successfully');
+        } else {
+            alert(data.error || 'Failed to update password');
+        }
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -632,10 +784,21 @@ export default function App() {
                                 {view === 'users' ? ' Manage IPs' : ' Manage Users'}
                             </button>
                         )}
+                        <button onClick={() => setShowMyAccount(true)} className="btn-account">
+                            <Shield size={16} /> My Account
+                        </button>
                         <button onClick={logout} className="btn-logout"><LogOut size={16} /> Logout</button>
                     </div>
                 </div>
             </header>
+
+            <ChangePasswordModal
+                isOpen={showMyAccount}
+                onClose={() => setShowMyAccount(false)}
+                onSave={handleUpdateOwnPassword}
+                title="Change My Password"
+                requireOldPassword={true}
+            />
 
             <main>
                 {view === 'users' && user.role === 'admin' ? (

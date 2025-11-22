@@ -76,6 +76,9 @@ app.post('/api/login', async (req, res) => {
     if (!user) return res.status(400).json({ error: 'User not found' });
 
     if (await bcrypt.compare(password, user.password)) {
+      if (user.is_active === false) {
+        return res.status(403).json({ error: 'Your account has been disabled by admin.' });
+      }
       const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
       res.json({ token, role: user.role, username: user.username });
     } else {
@@ -91,7 +94,7 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, username, role, is_active, created_at FROM users ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
@@ -124,6 +127,76 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
     await pool.query('DELETE FROM users WHERE id = $1', [id]);
     res.json({ message: 'User deleted' });
   } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Admin: Update User Password
+app.put('/api/users/:id/password', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, id]);
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Admin: Enable/Disable User
+app.put('/api/users/:id/status', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { is_active } = req.body;
+
+  if (typeof is_active !== 'boolean') {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+
+  // Prevent disabling self
+  if (parseInt(id) === req.user.id && !is_active) {
+    return res.status(400).json({ error: 'Cannot disable your own account' });
+  }
+
+  try {
+    await pool.query('UPDATE users SET is_active = $1 WHERE id = $2', [is_active, id]);
+    res.json({ message: `User ${is_active ? 'enabled' : 'disabled'} successfully` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Authenticated User: Update Own Password
+app.put('/api/profile/password', authenticateToken, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  if (!oldPassword || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+
+  try {
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    const user = userResult.rows[0];
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const match = await bcrypt.compare(oldPassword, user.password);
+    if (!match) return res.status(403).json({ error: 'Incorrect old password' });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, userId]);
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -371,9 +444,13 @@ const initDB = async () => {
         username VARCHAR(50) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'readonly')),
+        is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Add is_active column if missing
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
 
     // Create IPs Table
     await client.query(`
