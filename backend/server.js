@@ -12,6 +12,7 @@ const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkeychangeinproduction';
 
 // Middleware
+app.set('trust proxy', 1); // Trust first proxy (Nginx)
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
@@ -172,9 +173,52 @@ app.delete('/api/tabs/:id', authenticateToken, requireAdmin, async (req, res) =>
 // --- IP Routes ---
 
 app.get('/api/ips', authenticateToken, async (req, res) => {
+  const { page = 1, limit = 50, search = '', tab_id = 'all' } = req.query;
+  const offset = (page - 1) * limit;
+
   try {
-    const result = await pool.query('SELECT * FROM ips ORDER BY created_at DESC');
-    res.json(result.rows);
+    let query = 'SELECT * FROM ips';
+    let countQuery = 'SELECT COUNT(*) FROM ips';
+    const params = [];
+    const conditions = [];
+
+    // Search Filter
+    if (search) {
+      params.push(`%${search}%`);
+      conditions.push(`(ip ILIKE $${params.length} OR hostname ILIKE $${params.length} OR note ILIKE $${params.length} OR status ILIKE $${params.length})`);
+    }
+
+    // Tab Filter
+    if (tab_id !== 'all') {
+      params.push(tab_id);
+      conditions.push(`tab_id = $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      const whereClause = ' WHERE ' + conditions.join(' AND ');
+      query += whereClause;
+      countQuery += whereClause;
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    // Execute Count
+    const countResult = await pool.query(countQuery, params);
+    const totalItems = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Execute Data Query
+    const result = await pool.query(query, [...params, limit, offset]);
+
+    res.json({
+      data: result.rows,
+      pagination: {
+        totalItems,
+        totalPages,
+        currentPage: parseInt(page),
+        itemsPerPage: parseInt(limit)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -189,14 +233,30 @@ app.post('/api/ips', authenticateToken, requireAdmin, async (req, res) => {
   const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   if (!ip || !ipRegex.test(ip)) return res.status(400).json({ error: 'Invalid IP address format' });
 
+  // Subnet Validation (Optional)
+  if (req.body.subnet && !ipRegex.test(req.body.subnet)) {
+    return res.status(400).json({ error: 'Invalid Subnet format' });
+  }
+
+  // CIDR Validation (Optional)
+  if (req.body.cidr) {
+    const cidrRegex = /^\/([0-9]|[1-2][0-9]|3[0-2])$/;
+    if (!cidrRegex.test(req.body.cidr)) {
+      return res.status(400).json({ error: 'Invalid CIDR format (e.g. /24)' });
+    }
+  }
+
   try {
     const result = await pool.query(
-      'INSERT INTO ips (ip, hostname, ports, status, note, tab_id, created_by, last_updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [ip, hostname || '', ports || '', status || 'active', note || '', tab_id || null, username, username]
+      'INSERT INTO ips (ip, hostname, ports, status, note, tab_id, created_by, last_updated_by, subnet, cidr) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [ip, hostname || '', ports || '', status || 'active', note || '', tab_id || null, username, username, req.body.subnet || '', req.body.cidr || '']
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'IP already exists' });
+    }
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -208,19 +268,33 @@ app.put('/api/ips/:id', authenticateToken, requireAdmin, async (req, res) => {
 
   if (ip) {
     const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    if (!ipRegex.test(ip)) return res.status(400).json({ error: 'Invalid IP address format' });
-  }
+    if (ip) {
+      if (!ipRegex.test(ip)) return res.status(400).json({ error: 'Invalid IP address format' });
+    }
+    if (req.body.subnet && !ipRegex.test(req.body.subnet)) {
+      return res.status(400).json({ error: 'Invalid Subnet format' });
+    }
+    if (req.body.cidr) {
+      const cidrRegex = /^\/([0-9]|[1-2][0-9]|3[0-2])$/;
+      if (!cidrRegex.test(req.body.cidr)) {
+        return res.status(400).json({ error: 'Invalid CIDR format (e.g. /24)' });
+      }
+    }
 
-  try {
-    const result = await pool.query(
-      'UPDATE ips SET ip = COALESCE($1, ip), hostname = COALESCE($2, hostname), ports = COALESCE($3, ports), status = COALESCE($4, status), note = COALESCE($5, note), tab_id = COALESCE($6, tab_id), last_updated_by = $7 WHERE id = $8 RETURNING *',
-      [ip, hostname, ports, status, note, tab_id, username, id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    try {
+      const result = await pool.query(
+        'UPDATE ips SET ip = COALESCE($1, ip), hostname = COALESCE($2, hostname), ports = COALESCE($3, ports), status = COALESCE($4, status), note = COALESCE($5, note), tab_id = COALESCE($6, tab_id), last_updated_by = $7, subnet = COALESCE($8, subnet), cidr = COALESCE($9, cidr) WHERE id = $10 RETURNING *',
+        [ip, hostname, ports, status, note, tab_id, username, req.body.subnet, req.body.cidr, id]
+      );
+      if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err);
+      if (err.code === '23505') {
+        return res.status(409).json({ error: 'IP already exists' });
+      }
+      res.status(500).json({ error: 'Database error' });
+    }
   }
 });
 
@@ -338,6 +412,12 @@ const initDB = async () => {
     // Add user tracking columns
     await client.query(`ALTER TABLE ips ADD COLUMN IF NOT EXISTS created_by VARCHAR(50)`);
     await client.query(`ALTER TABLE ips ADD COLUMN IF NOT EXISTS last_updated_by VARCHAR(50)`);
+    await client.query(`ALTER TABLE ips ADD COLUMN IF NOT EXISTS subnet VARCHAR(45) DEFAULT ''`);
+    await client.query(`ALTER TABLE ips ADD COLUMN IF NOT EXISTS cidr VARCHAR(10) DEFAULT ''`);
+
+    // Unique constraint on IP + Subnet + CIDR
+    // We use COALESCE to handle potential NULLs if they were inserted that way, though we default to ''
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS ips_unique_idx ON ips (ip, COALESCE(subnet, ''), COALESCE(cidr, ''))`);
 
     await client.query('COMMIT');
   } catch (e) {

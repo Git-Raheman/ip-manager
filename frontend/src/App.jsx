@@ -154,7 +154,9 @@ const EditModal = ({ ip, tabs, onClose, onSave }) => {
         ports: ip.ports || '',
         status: ip.status || 'active',
         note: ip.note || '',
-        tab_id: ip.tab_id || ''
+        tab_id: ip.tab_id || '',
+        subnet: ip.subnet || '',
+        cidr: ip.cidr || ''
     });
     const [pinging, setPinging] = useState(false);
     const [pingResult, setPingResult] = useState(null);
@@ -190,6 +192,19 @@ const EditModal = ({ ip, tabs, onClose, onSave }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Validation
+        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        if (form.subnet && !ipRegex.test(form.subnet)) {
+            alert('Invalid Subnet format');
+            return;
+        }
+        if (form.cidr) {
+            const cidrRegex = /^\/([0-9]|[1-2][0-9]|3[0-2])$/;
+            if (!cidrRegex.test(form.cidr)) {
+                alert('Invalid CIDR format (e.g. /24)');
+                return;
+            }
+        }
         await onSave(form);
     };
 
@@ -248,6 +263,24 @@ const EditModal = ({ ip, tabs, onClose, onSave }) => {
                             />
                         </div>
                         <div className="form-group">
+                            <label>Subnet (Optional)</label>
+                            <input
+                                type="text"
+                                value={form.subnet}
+                                onChange={e => setForm({ ...form, subnet: e.target.value })}
+                                placeholder="e.g. 255.255.255.0"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>CIDR (Optional)</label>
+                            <input
+                                type="text"
+                                value={form.cidr}
+                                onChange={e => setForm({ ...form, cidr: e.target.value })}
+                                placeholder="e.g. /24"
+                            />
+                        </div>
+                        <div className="form-group">
                             <label>Tab</label>
                             <select
                                 value={form.tab_id}
@@ -290,7 +323,8 @@ const EditModal = ({ ip, tabs, onClose, onSave }) => {
 export default function App() {
     const { user, logout, loading } = useAuth();
     const [allIps, setAllIps] = useState([]);
-    const [form, setForm] = useState({ ip: '', hostname: '', ports: '', status: 'active', note: '', tab_id: '' });
+    const [form, setForm] = useState({ ip: '', hostname: '', ports: '', status: 'active', note: '', tab_id: '', subnet: '', cidr: '' });
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [pingResult, setPingResult] = useState(null);
     const [pinging, setPinging] = useState(false);
     const [view, setView] = useState('ips'); // 'ips' or 'users'
@@ -299,13 +333,23 @@ export default function App() {
     const [editingIp, setEditingIp] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
     const [tabs, setTabs] = useState([{ id: 'all', name: 'All IPs' }]);
+    const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0 });
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on search
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     useEffect(() => {
         if (user) {
             fetchIps();
             fetchTabs();
         }
-    }, [user]);
+    }, [user, pagination.currentPage, debouncedSearch, activeTab]);
 
     const fetchTabs = async () => {
         const token = localStorage.getItem('token');
@@ -325,24 +369,42 @@ export default function App() {
     const fetchIps = async () => {
         const token = localStorage.getItem('token');
         try {
-            const res = await fetch('/api/ips', {
+            const queryParams = new URLSearchParams({
+                page: pagination.currentPage,
+                limit: 50,
+                search: debouncedSearch,
+                tab_id: activeTab
+            });
+            const res = await fetch(`/api/ips?${queryParams}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
                 const data = await res.json();
-                setAllIps(data);
+                setAllIps(data.data);
+                setPagination(prev => ({ ...prev, ...data.pagination }));
             } else if (res.status === 401 || res.status === 403) {
-                // Only logout if explicitly unauthorized
                 logout();
             }
         } catch (err) {
             console.error('Failed to fetch IPs', err);
-            // Do NOT logout on network error
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Validation
+        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        if (form.subnet && !ipRegex.test(form.subnet)) {
+            alert('Invalid Subnet format');
+            return;
+        }
+        if (form.cidr) {
+            const cidrRegex = /^\/([0-9]|[1-2][0-9]|3[0-2])$/;
+            if (!cidrRegex.test(form.cidr)) {
+                alert('Invalid CIDR format (e.g. /24)');
+                return;
+            }
+        }
         const token = localStorage.getItem('token');
         try {
             const res = await fetch('/api/ips', {
@@ -354,11 +416,18 @@ export default function App() {
                 body: JSON.stringify(form)
             });
             if (res.ok) {
-                setForm({ ip: '', hostname: '', ports: '', status: 'active', note: '', tab_id: '' });
+                setForm({ ip: '', hostname: '', ports: '', status: 'active', note: '', tab_id: '', subnet: '', cidr: '' });
+                setShowAdvanced(false);
                 fetchIps();
             } else {
                 const err = await res.json();
-                alert(err.error);
+                if (res.status === 409) {
+                    if (confirm("This IP already exists. Do you want to add an entry for a specific subnet/CIDR?")) {
+                        setShowAdvanced(true);
+                    }
+                } else {
+                    alert(err.error);
+                }
             }
         } catch (err) {
             console.error(err);
@@ -470,9 +539,11 @@ export default function App() {
         const ipsToExport = activeTab === 'all' ? filteredIps : filteredIps;
 
         // Create CSV content
-        const headers = ['IP Address', 'Hostname', 'Ports', 'Status', 'Notes', 'Tab Assigned', 'Last Updated By', 'Created At'];
+        const headers = ['IP Address', 'Subnet', 'CIDR', 'Hostname', 'Ports', 'Status', 'Notes', 'Tab Assigned', 'Last Updated By', 'Created At'];
         const rows = ipsToExport.map(ip => [
             ip.ip,
+            ip.subnet || '',
+            ip.cidr || '',
             ip.hostname || '',
             ip.ports || '',
             ip.status,
@@ -542,21 +613,8 @@ export default function App() {
     };
 
     // Filter IPs based on search query and active tab
-    const filteredIps = allIps.filter(ip => {
-        // Tab Filter
-        if (activeTab !== 'all') {
-            if (ip.tab_id !== activeTab) return false;
-        }
-
-        // Search Filter
-        const query = searchQuery.toLowerCase();
-        return (
-            ip.ip.toLowerCase().includes(query) ||
-            (ip.hostname && ip.hostname.toLowerCase().includes(query)) ||
-            (ip.note && ip.note.toLowerCase().includes(query)) ||
-            ip.status.toLowerCase().includes(query)
-        );
-    });
+    // Now handled by server, so we just use allIps
+    const filteredIps = allIps;
 
     if (loading) return <div className="loading"><RefreshCw className="spin" size={48} /></div>;
     if (!user) return <Login />;
@@ -635,7 +693,28 @@ export default function App() {
                                             <option key={t.id} value={t.id}>{t.name}</option>
                                         ))}
                                     </select>
-                                    <button type="submit"><Plus size={16} /> Add Entry</button>
+                                    <div style={{ marginTop: '10px' }}>
+                                        <button type="button" className="btn-link" onClick={() => setShowAdvanced(!showAdvanced)} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                                            {showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options (Subnet/CIDR)'}
+                                        </button>
+                                    </div>
+                                    {showAdvanced && (
+                                        <div className="form-row" style={{ marginTop: '10px' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Subnet (e.g. 255.255.255.0)"
+                                                value={form.subnet}
+                                                onChange={e => setForm({ ...form, subnet: e.target.value })}
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="CIDR (e.g. /24)"
+                                                value={form.cidr}
+                                                onChange={e => setForm({ ...form, cidr: e.target.value })}
+                                            />
+                                        </div>
+                                    )}
+                                    <button type="submit" style={{ marginTop: '10px' }}><Plus size={16} /> Add Entry</button>
                                 </form>
                             </section>
                         )}
@@ -662,7 +741,10 @@ export default function App() {
                                         <div
                                             key={tab.id}
                                             className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-                                            onClick={() => setActiveTab(tab.id)}
+                                            onClick={() => {
+                                                setActiveTab(tab.id);
+                                                setPagination(prev => ({ ...prev, currentPage: 1 }));
+                                            }}
                                         >
                                             {tab.name}
                                             {tab.id !== 'all' && (
@@ -718,6 +800,8 @@ export default function App() {
                                                 {user.role === 'admin' && <th style={{ width: '40px' }}></th>}
                                                 <th>#</th>
                                                 <th>IP</th>
+                                                <th>Subnet</th>
+                                                <th>CIDR</th>
                                                 <th>Hostname</th>
                                                 <th>Ports</th>
                                                 <th>Status</th>
@@ -741,6 +825,8 @@ export default function App() {
                                                     )}
                                                     <td>{index + 1}</td>
                                                     <td>{item.ip}</td>
+                                                    <td>{item.subnet}</td>
+                                                    <td>{item.cidr}</td>
                                                     <td>{item.hostname}</td>
                                                     <td>{item.ports}</td>
                                                     <td>
@@ -794,6 +880,22 @@ export default function App() {
                                 </div>
                             )}
                         </section>
+                        {/* Pagination Controls */}
+                        <div className="pagination">
+                            <button
+                                disabled={pagination.currentPage === 1}
+                                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+                            >
+                                Previous
+                            </button>
+                            <span>Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalItems} items)</span>
+                            <button
+                                disabled={pagination.currentPage === pagination.totalPages}
+                                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+                            >
+                                Next
+                            </button>
+                        </div>
                     </>
                 )}
             </main>
