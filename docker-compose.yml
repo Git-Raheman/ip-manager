@@ -12,9 +12,9 @@ services:
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U user -d ipmanager" ]
-      interval: 5s
+      interval: 140s
       timeout: 5s
-      retries: 10
+      retries: 3
     networks:
       - app-network
 
@@ -30,7 +30,7 @@ services:
       - app-network
     healthcheck:
       test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health" ]
-      interval: 10s
+      interval: 140s
       timeout: 5s
       retries: 3
 
@@ -40,7 +40,7 @@ services:
       - app-network
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
-      interval: 10s
+      interval: 140s
       timeout: 5s
       retries: 3
 
@@ -55,7 +55,7 @@ services:
       - app-network
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
-      interval: 10s
+      interval: 320s
       timeout: 5s
       retries: 3
 
