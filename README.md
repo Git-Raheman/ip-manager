@@ -22,11 +22,9 @@ A powerful and modern IP address management (IPAM) solution designed to help adm
 
 | System Logs | Monitor Settings |
 |:---:|:---:|
-| ![System Logs](screenshots/logs.png) | ![Monitor Settings](screenshots/monitor-settings.png) |
+| ![System Logs](screenshots/logs.png) | ![Monitor Settings](screenshots/monitor-check.png) |
 
-<p align="center">
-  <img src="screenshots/monitor-check.png" alt="Monitor Check" width="50%">
-</p>
+
 
 ## 🛠️ Tech Stack
 
