@@ -14,6 +14,20 @@ A powerful and modern IP address management (IPAM) solution designed to help adm
 - **Responsive Design**: Modern UI built with React and Framer Motion.
 - **Dockerized**: Fully containerized for easy deployment and scalability.
 
+## 📸 Screenshots
+
+| Dashboard | User Management |
+|:---:|:---:|
+| ![Dashboard](screenshots/dashboard.png) | ![User Management](screenshots/user-management.png) |
+
+| System Logs | Monitor Settings |
+|:---:|:---:|
+| ![System Logs](screenshots/logs.png) | ![Monitor Settings](screenshots/monitor-settings.png) |
+
+<p align="center">
+  <img src="screenshots/monitor-check.png" alt="Monitor Check" width="50%">
+</p>
+
 ## 🛠️ Tech Stack
 
 ### Frontend
