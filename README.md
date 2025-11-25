@@ -70,6 +70,15 @@ Before you begin, ensure you have the following installed:
    http://localhost:8080
    ```
 
+## 🔄 CI/CD Pipeline
+
+This project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) that automatically:
+- Validates the **Frontend** build.
+- Validates the **Backend** installation.
+- Verifies the **Docker Compose** build configuration.
+
+The pipeline runs on every push and pull request to the `main` branch.
+
 ## 🤝 Contribution
 
 We welcome contributions from the community! Whether it's fixing bugs, improving documentation, or adding new features, your help is appreciated.
