@@ -9,7 +9,6 @@ services:
       POSTGRES_DB: ipmanager
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U user -d ipmanager" ]
       interval: 30s
