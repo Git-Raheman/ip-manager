@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: dockeraheman/single_user_based_db:v1
+    environment:
+      POSTGRES_USER: user ##< update user name
+      POSTGRES_PASSWORD: password ##< update password
+      POSTGRES_DB: ipmanager
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d ipmanager" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - single_user_based
+
+  backend:
+    image: dockeraheman/single_user_based_backend:v1
+    environment:
+      DATABASE_URL: postgres://user:password@postgres:5432/ipmanager ##< update user name, password, database name
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - single_user_based
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    image: dockeraheman/single_user_based_frontend:v1
+    networks:
+      - single_user_based
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  proxy:
+    image: dockeraheman/single_user_based_proxy:v1
+    ports:
+      - "8080:8080"
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - single_user_based
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+networks:
+  single_user_based:
+    driver: bridge
+
+volumes:
+  pgdata:
