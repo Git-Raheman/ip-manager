@@ -1,110 +1,59 @@
-# IP Manager
+# IP Manager (Multi-User Edition)
 
-A powerful and modern IP address management (IPAM) solution designed to help administrators track, visualize, and manage IP addresses across their networks. Built with a focus on performance, usability, and visualization.
+> ⚠️ **NOTICE: THIS APPLICATION IS CURRENTLY IN BETA AND IS NOT STABLE.**
+> 
+> 🛑 **CRITICAL WARNING:** DATA LOSS IS POSSIBLE. **YOU MUST BACKUP YOUR DOCKER VOLUMES REGULARLY.**
 
-## 🚀 Features
+## Overview
 
-> **⚠️ Note**: This project is currently in development and **not fully stable**. Some features may not function as expected. Specifically, the **Backup & Restore** functionality for IPs is currently not working properly.
+This version of **IP Manager** is designed for teams and organizations necessitating granular access control and accountability. It features a complete multi-user system with Admin and Standard User roles, alongside a comprehensive logging system to track all changes.
 
-- **IP Management**: Efficiently add, edit, delete, and search IP addresses.
-⚠️- **Network Visualization**: Interactive network maps using force-directed graphs to visualize connections.
-- **User Management**: Secure authentication and role-based access control.
-- **Data Import/Export**: Support for Excel import/export to easily migrate data.
-- **Monitoring**: Real-time status monitoring of IP addresses.
-- **Responsive Design**: Modern UI built with React and Framer Motion.
-- **Dockerized**: Fully containerized for easy deployment and scalability.
+## ✨ Key Features
+
+*   **Multi-User Authentication**: Secure login with role-based access control (Admin vs User).
+*   **User Management**: Admins can manage users, reset passwords, and control access.
+*   **Activity Logging**: Detailed logs of who did what and when (IP additions, updates, deletions).
+*   **IP Management**: Centralized IP address tracking and management.
+*   **System Monitoring**: Real-time server and network status checks.
+*   **Backup & Restore**: Full database backup capabilities.
 
 ## 📸 Screenshots
 
 | Dashboard | User Management |
 |:---:|:---:|
-| ![Dashboard](screenshots/dashboard.png) | ![User Management](screenshots/user-management.png) |
+| <img src="./screenshots/dashboard.png" width="400" alt="Dashboard"> | <img src="./screenshots/user-management.png" width="400" alt="User Management"> |
 
-| System Logs | Monitor Settings |
+| Activity Logs | Monitor Checks |
 |:---:|:---:|
-| ![System Logs](screenshots/logs.png) | ![Monitor Settings](screenshots/monitor-check.png) |
+| <img src="./screenshots/logs.png" width="400" alt="Activity Logs"> | <img src="./screenshots/monitor-check.png" width="400" alt="Monitor Checks"> |
 
+## 🚀 Getting Started
 
+### Prerequisites
+*   Docker & Docker Compose
 
-## 🛠️ Tech Stack
+### Installation
 
-### Frontend
-- **React**: UI library for building interactive interfaces.
-- **Framer Motion**: For smooth animations and transitions.
-- **Lucide React**: Beautiful and consistent icons.
-- **Esbuild**: Extremely fast JavaScript bundler.
+1.  Navigate to the directory:
+    ```bash
+    cd multi_user_bassed
+    ```
+2.  Start the application:
+    ```bash
+    docker-compose up -d --build
+    ```
+3.  Access the UI at `http://localhost:8080`.
 
-### Backend
-- **Node.js & Express**: Robust and scalable backend API.
-- **PostgreSQL**: Reliable relational database for data storage.
-- **JWT**: Secure JSON Web Token authentication.
+## ⚙️ Configuration
 
-### Infrastructure
-- **Docker & Docker Compose**: Containerization and orchestration.
-- **Nginx**: High-performance reverse proxy.
+Check `docker-compose.yml` for environment variables. Default database credentials:
+*   User: `user`
+*   Password: `password`
 
-## 📋 Prerequisites
+## 🛡️ Backup Guide
 
-Before you begin, ensure you have the following installed:
-- [Docker](https://www.docker.com/get-started)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-- [Git](https://git-scm.com/downloads)
+To prevent data loss, regularly backup the `pgdata` volume. Example command:
 
-## ⚡ Getting Started
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Git-Raheman/ip-manager.git
-   cd ip-manager
-   ```
-
-2. **Start the application**
-   Run the following command to build and start all services:
-   ```bash
-   docker-compose up --build -d
-   ```
-
-3. **Access the application**
-   Open your browser and navigate to:
-   ```
-   http://localhost:8080
-   ```
-
-## 🔄 CI/CD Pipeline
-
-This project includes a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) that automatically:
-- Validates the **Frontend** build.
-- Validates the **Backend** installation.
-- Verifies the **Docker Compose** build configuration.
-
-The pipeline runs on every push and pull request to the `main` branch.
-
-## 🤝 Contribution
-
-We welcome contributions from the community! Whether it's fixing bugs, improving documentation, or adding new features, your help is appreciated.
-
-### How to Contribute
-
-1. **Fork the Project**
-   Click the "Fork" button at the top right of this page.
-
-2. **Create your Feature Branch**
-   ```bash
-   git checkout -b feature/AmazingFeature
-   ```
-
-3. **Commit your Changes**
-   ```bash
-   git commit -m 'Add some AmazingFeature'
-   ```
-
-4. **Push to the Branch**
-   ```bash
-   git push origin feature/AmazingFeature
-   ```
-
-5. **Open a Pull Request**
-   Go to the original repository and open a Pull Request to the `main` branch.
-
-
-
+```bash
+docker run --rm -v multi_user_bassed_pgdata:/volume -v $(pwd):/backup alpine tar -czf /backup/db_backup.tar.gz -C /volume ./
+```
