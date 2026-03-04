@@ -22,6 +22,44 @@
 
 > _Launch the app with `docker compose up -d` and visit `http://localhost:8080`_
 
+### 🔐 Login Page
+![Login Page — Secure sign-in with Public Shares panel](pics/login%20.png)
+
+---
+
+### 🖥️ IP Management Dashboard
+![IP Management Dashboard — Add, search, sort and manage all IP records](pics/dashbord.png)
+
+---
+
+### 📡 Live Network Monitor
+![Live Network Monitor — Auto-ping scheduler and individual IP health check](pics/Monitor.png)
+
+---
+
+### 🔭 Network Auto-Discovery
+![Network Auto-Discovery — Nmap-powered subnet scanner with one-click import](pics/Network%20auto-discovery.png)
+
+---
+
+### 🌐 Public Shares
+![Public Shares — Share read-only IP lists publicly via a secure link, no login required](pics/Public%20Shares.png)
+
+---
+
+### 👥 User Management
+![User Management — Create and manage admin and read-only user accounts](pics/User%20management.png)
+
+---
+
+### 💾 System Backup & Import
+![System Backup & Import — Full JSON export/restore and Excel import support](pics/System%20backup%20%26%20import.png)
+
+---
+
+### 📋 System Audit Logs
+![System Logs — Searchable audit trail of every login, change and discovery event](pics/logs.png)
+
 ---
 
 ## 🌟 Why IP-Manager?
