@@ -10,6 +10,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -275,7 +276,7 @@ app.put('/api/profile/password', authenticateToken, async (req, res) => {
 
 app.get('/api/tabs', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM tabs ORDER BY created_at ASC');
+    const result = await pool.query('SELECT * FROM tabs ORDER BY is_default_public DESC, created_at ASC');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -284,15 +285,16 @@ app.get('/api/tabs', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/tabs', authenticateToken, requireAdmin, async (req, res) => {
-  const { name } = req.body;
+  const { name, is_public } = req.body;
   if (!name) return res.status(400).json({ error: 'Tab name is required' });
 
   try {
+    const shareToken = is_public ? crypto.randomBytes(24).toString('hex') : null;
     const result = await pool.query(
-      'INSERT INTO tabs (name) VALUES ($1) RETURNING *',
-      [name]
+      'INSERT INTO tabs (name, is_public, share_token) VALUES ($1, $2, $3) RETURNING *',
+      [name, !!is_public, shareToken]
     );
-    logSystemEvent('TAB', `Created tab ${name}`, req.user.id);
+    logSystemEvent('TAB', `Created tab ${name}${is_public ? ' (public)' : ''}`, req.user.id);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
@@ -303,12 +305,114 @@ app.post('/api/tabs', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Toggle public sharing for a tab
+app.put('/api/tabs/:id/sharing', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { is_public } = req.body;
+
+  if (typeof is_public !== 'boolean') {
+    return res.status(400).json({ error: 'is_public must be boolean' });
+  }
+
+  try {
+    // Check if this is the default public tab
+    const checkTab = await pool.query('SELECT is_default_public, name FROM tabs WHERE id = $1', [id]);
+    if (checkTab.rows.length === 0) return res.status(404).json({ error: 'Tab not found' });
+    if (checkTab.rows[0].is_default_public && !is_public) {
+      return res.status(400).json({ error: 'The default Public Sharing tab cannot have sharing disabled' });
+    }
+
+    let shareToken = null;
+    if (is_public) {
+      // Get existing token or create a new one
+      const existing = await pool.query('SELECT share_token FROM tabs WHERE id = $1', [id]);
+      shareToken = existing.rows[0]?.share_token || crypto.randomBytes(24).toString('hex');
+    }
+
+    const result = await pool.query(
+      'UPDATE tabs SET is_public = $1, share_token = $2 WHERE id = $3 RETURNING *',
+      [is_public, shareToken, id]
+    );
+    logSystemEvent('TAB', `${is_public ? 'Enabled' : 'Disabled'} public sharing for tab: ${result.rows[0].name}`, req.user.id);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 app.delete('/api/tabs/:id', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
+    // Prevent deletion of the default public tab
+    const checkTab = await pool.query('SELECT is_default_public FROM tabs WHERE id = $1', [id]);
+    if (checkTab.rows.length > 0 && checkTab.rows[0].is_default_public) {
+      return res.status(400).json({ error: 'The default Public Sharing tab cannot be deleted' });
+    }
     await pool.query('DELETE FROM tabs WHERE id = $1', [id]);
     logSystemEvent('TAB', `Deleted tab ID ${id}`, req.user.id);
     res.json({ message: 'Tab deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// --- Public Sharing Routes (No Authentication Required) ---
+
+// Get all publicly shared tabs (for the login page panel)
+app.get('/api/public/tabs', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, share_token, is_default_public, created_at FROM tabs WHERE is_public = TRUE AND share_token IS NOT NULL ORDER BY is_default_public DESC, name ASC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Get IPs for a specific public tab by token
+app.get('/api/public/tab/:token', async (req, res) => {
+  const { token } = req.params;
+  const { search = '', page = 1, limit = 100 } = req.query;
+  const offset = (page - 1) * limit;
+
+  try {
+    const tabResult = await pool.query(
+      'SELECT id, name, share_token, created_at FROM tabs WHERE share_token = $1 AND is_public = TRUE',
+      [token]
+    );
+    if (tabResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Shared tab not found or sharing has been disabled' });
+    }
+    const tab = tabResult.rows[0];
+
+    let query = 'SELECT ip, hostname, ports, status, note, subnet, cidr, last_status, last_checked FROM ips WHERE tab_id = $1';
+    const params = [tab.id];
+
+    if (search) {
+      params.push(`%${search}%`);
+      query += ` AND (ip ILIKE $${params.length} OR hostname ILIKE $${params.length} OR note ILIKE $${params.length} OR status ILIKE $${params.length})`;
+    }
+
+    const countQuery = query.replace('SELECT ip, hostname, ports, status, note, subnet, cidr, last_status, last_checked', 'SELECT COUNT(*)');
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    params.push(parseInt(limit), offset);
+    query += ` ORDER BY ip LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
+    const ipsResult = await pool.query(query, params);
+
+    res.json({
+      tab: { name: tab.name, id: tab.id },
+      ips: ipsResult.rows,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit)
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -785,7 +889,7 @@ app.get('/api/backup/export', authenticateToken, requireAdmin, async (req, res) 
     const [users, ips, tabs, settings, logs] = await Promise.all([
       pool.query('SELECT * FROM users ORDER BY id'),
       pool.query('SELECT * FROM ips ORDER BY id'),
-      pool.query('SELECT * FROM tabs ORDER BY id'),
+      pool.query('SELECT id, name, is_public, share_token, is_default_public, created_at FROM tabs ORDER BY id'),
       pool.query('SELECT * FROM settings'),
       pool.query('SELECT * FROM system_logs ORDER BY id')
     ]);
@@ -886,16 +990,16 @@ app.post('/api/backup/import', authenticateToken, requireAdmin, async (req, res)
         try {
           if (mode === 'replace') {
             await client.query(
-              `INSERT INTO tabs (id, name, created_at) VALUES ($1, $2, $3)`,
-              [tab.id, tab.name, tab.created_at || new Date().toISOString()]
+              `INSERT INTO tabs (id, name, is_public, share_token, is_default_public, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+              [tab.id, tab.name, tab.is_public || false, tab.share_token || null, tab.is_default_public || false, tab.created_at || new Date().toISOString()]
             );
             tabIdMap.set(tab.id, tab.id);
           } else {
             const r = await client.query(
-              `INSERT INTO tabs (name, created_at) VALUES ($1, $2) 
-               ON CONFLICT (name) DO UPDATE SET created_at=EXCLUDED.created_at 
+              `INSERT INTO tabs (name, is_public, share_token, is_default_public, created_at) VALUES ($1, $2, $3, $4, $5) 
+               ON CONFLICT (name) DO UPDATE SET is_public=EXCLUDED.is_public, share_token=COALESCE(tabs.share_token, EXCLUDED.share_token), is_default_public=EXCLUDED.is_default_public, created_at=EXCLUDED.created_at 
                RETURNING id`,
-              [tab.name, tab.created_at || new Date().toISOString()]
+              [tab.name, tab.is_public || false, tab.share_token || null, tab.is_default_public || false, tab.created_at || new Date().toISOString()]
             );
             tabIdMap.set(tab.id, r.rows[0].id);
           }
@@ -1524,8 +1628,21 @@ const initDB = async () => {
       CREATE TABLE IF NOT EXISTS tabs (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
+        is_public BOOLEAN DEFAULT FALSE,
+        share_token VARCHAR(64) UNIQUE,
+        is_default_public BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+    await client.query(`ALTER TABLE tabs ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE tabs ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)`);
+    await client.query(`ALTER TABLE tabs ADD COLUMN IF NOT EXISTS is_default_public BOOLEAN DEFAULT FALSE`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS tabs_share_token_idx ON tabs (share_token) WHERE share_token IS NOT NULL`);
+    // Ensure default public sharing tab exists
+    await client.query(`
+      INSERT INTO tabs (name, is_public, share_token, is_default_public)
+      VALUES ('Public Sharing', TRUE, 'default-public-share-token-static', TRUE)
+      ON CONFLICT (name) DO UPDATE SET is_public = TRUE, share_token = COALESCE(tabs.share_token, 'default-public-share-token-static'), is_default_public = TRUE
     `);
     await client.query(`ALTER TABLE ips ADD COLUMN IF NOT EXISTS tab_id INTEGER REFERENCES tabs(id) ON DELETE SET NULL`);
 

@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS tabs (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
+    is_public BOOLEAN DEFAULT FALSE,
+    share_token VARCHAR(64) UNIQUE,
+    is_default_public BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -56,3 +59,8 @@ INSERT INTO settings (key, value) VALUES
 ('ping_interval', '3'),
 ('auto_ping_enabled', 'false')
 ON CONFLICT DO NOTHING;
+
+-- Default Public Sharing Tab (cannot be deleted)
+INSERT INTO tabs (name, is_public, share_token, is_default_public) 
+VALUES ('Public Sharing', TRUE, 'default-public-share-token-static', TRUE)
+ON CONFLICT (name) DO NOTHING;
