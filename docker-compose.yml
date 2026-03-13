@@ -50,14 +50,14 @@ services:
   proxy:
     build: ./proxy
     ports:
-      - "8080:8080"
+      - "80:80"
     depends_on:
       - frontend
       - backend
     networks:
       - app-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
       interval: 60s
       timeout: 10s
       retries: 5
