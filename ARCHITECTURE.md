@@ -27,16 +27,16 @@ IP-Manager is made of **four independent programs** (called containers [Containe
 │                    Docker Compose Environment               │
 │                    (Private Network: app-network)           │
 │                                                             │
-│  ┌────────────┐   ┌────────────┐   ┌────────────────────┐  │
-│  │  FRONTEND  │   │  BACKEND   │   │     POSTGRES       │  │
-│  │   :8080    │   │   :3000    │   │      :5432         │  │
-│  │  React +   │   │  Node.js + │   │   PostgreSQL 15    │  │
-│  │    Nginx   │   │   Express  │   │   (Data Storage)   │  │
-│  └────────────┘   └────────────┘   └────────────────────┘  │
+│  ┌────────────┐   ┌────────────┐   ┌────────────────────┐   │
+│  │  FRONTEND  │   │  BACKEND   │   │     POSTGRES       │   │
+│  │   :8080    │   │   :3000    │   │      :5432         │   │
+│  │  React +   │   │  Node.js + │   │   PostgreSQL 15    │   │
+│  │    Nginx   │   │   Express  │   │   (Data Storage)   │   │
+│  └────────────┘   └────────────┘   └────────────────────┘   │
 │         ▲               ▲                                   │
 │         │               │                                   │
 │  ┌──────────────────────────────┐                           │
-│  │           PROXY              │ ◄── Port 8080 (Public)    │
+│  │           PROXY              │ ◄── Port 80 (Public)      │
 │  │    Nginx Reverse Proxy       │                           │
 │  └──────────────────────────────┘                           │
 └─────────────────────────────────────────────────────────────┘
@@ -75,10 +75,10 @@ Imagine a very efficient **post office building**:
 
 ```mermaid
 flowchart TD
-    Browser(["🖥️ User Browser\nhttp://localhost:8080"])
+    Browser(["🖥️ User Browser\nhttp://localhost:80"])
 
     subgraph Docker["🐳 Docker Compose — app-network"]
-        Proxy["🚦 PROXY\nNginx\n:8080"]
+        Proxy["🚦 PROXY\nNginx\n:80"]
 
         subgraph FE["📦 Frontend Container"]
             React["⚛️ React 18 App\nframer-motion\nlucide-react"]
@@ -106,7 +106,7 @@ flowchart TD
         end
     end
 
-    Browser -->|"HTTP request :8080"| Proxy
+    Browser -->|"HTTP request :80"| Proxy
     Proxy -->|"/* — Static UI"| FENginx
     Proxy -->|"/api/* — API calls"| Express
     FENginx --> React
@@ -142,7 +142,7 @@ flowchart TD
 ### 🚦 Container 1: The Proxy
 
 **Image:** `nginxinc/nginx-unprivileged:alpine`
-**Port:** `8080` (the only port exposed to the outside world)
+**Port:** `80` (the only port exposed to the outside world)
 **Role:** Traffic Police
 
 The proxy is the **single entry point** for all traffic. It reads the URL path and decides where to send the request:

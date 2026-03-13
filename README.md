@@ -20,7 +20,7 @@
 
 ## 🖼️ Screenshots
 
-> _Launch the app with `docker compose up -d` and visit `http://localhost:8080`_
+> _Launch the app with `docker compose up -d` and visit `http://localhost:80`_
 
 ### 🔐 Login Page
 ![Login Page — Secure sign-in with Public Shares panel](pics/login%20.png)
@@ -181,7 +181,7 @@ docker compose up -d --build
 ### 3. Open the Dashboard
 
 ```
-http://localhost:8080
+http://localhost:80
 ```
 
 ### 4. Default Login Credentials
