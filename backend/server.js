@@ -305,6 +305,34 @@ app.post('/api/tabs', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Rename a tab
+app.put('/api/tabs/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Tab name is required' });
+  }
+
+  try {
+    const checkTab = await pool.query('SELECT * FROM tabs WHERE id = $1', [id]);
+    if (checkTab.rows.length === 0) return res.status(404).json({ error: 'Tab not found' });
+
+    const result = await pool.query(
+      'UPDATE tabs SET name = $1 WHERE id = $2 RETURNING *',
+      [name.trim(), id]
+    );
+    logSystemEvent('TAB', `Renamed tab ID ${id} to "${name.trim()}"`, req.user.id);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'A tab with this name already exists' });
+    }
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // Toggle public sharing for a tab
 app.put('/api/tabs/:id/sharing', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;

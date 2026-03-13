@@ -425,49 +425,68 @@ button:active:not(:disabled) {
   color: var(--accent);
 }
 
-/* Redesigned Tabs Section */
-.tabs-container {
-  padding: 16px 20px;
+/* ────────────────────────────────────────────────────────────────────────────
+   Tab Strip — fully scrollable, auto-adjust, rename-ready
+──────────────────────────────────────────────────────────────────────────── */
+.tabs-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
   background: rgba(15, 23, 42, 0.2);
   margin-top: 8px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
+  min-width: 0;
+}
+
+/* Scrollable strip — hides the scrollbar but stays scrollable */
+.tabs-container {
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  scroll-behavior: smooth;
 }
-
-.tabs-container::-webkit-scrollbar {
-  display: none;
-  /* Hide scrollbar for Chrome/Safari/Blink */
-}
+.tabs-container::-webkit-scrollbar { display: none; }
 
 .tabs {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: nowrap;
-  /* Prevent wrapping for horizontal scroll */
+  width: max-content;    /* let tabs grow beyond container — scroll handles it */
 }
 
+/* Individual tab pill */
 .tab {
-  height: 40px;
-  padding: 0 1.25rem;
-  display: flex;
+  height: 38px;
+  padding: 0 12px 0 14px;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.02);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid transparent;
   border-radius: 10px;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  gap: 10px;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 200px;        /* keep tabs a reasonable width */
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tab-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .tab:hover:not(.active) {
@@ -477,56 +496,133 @@ button:active:not(:disabled) {
 }
 
 .tab.active {
-  background: rgba(99, 102, 241, 0.12);
+  background: rgba(99, 102, 241, 0.14);
   color: var(--accent);
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(99, 102, 241, 0.45);
   font-weight: 600;
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.12);
 }
 
-.btn-tab-delete {
-  padding: 2px !important;
-  border-radius: 4px !important;
-  background: transparent !important;
-  color: var(--text-secondary) !important;
-  display: flex;
+/* tab action buttons — unified micro-icon style */
+.tab-action-group {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  opacity: 0.4;
-  height: auto !important;
-  min-width: 0 !important;
-}
-
-.btn-tab-delete:hover {
-  background: rgba(244, 63, 94, 0.15) !important;
-  color: var(--danger) !important;
-  opacity: 1;
-  box-shadow: none !important;
-  transform: none !important;
-}
-
-.btn-add-tab {
-  height: 40px;
-  width: 40px;
-  padding: 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
-  color: var(--text-secondary) !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  gap: 2px;
   flex-shrink: 0;
 }
 
+.tab:not(.active) .tab-action-group {
+  opacity: 0;
+  pointer-events: none;
+}
+.tab:hover .tab-action-group,
+.tab.active .tab-action-group {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.btn-tab-action {
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 5px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  box-shadow: none !important;
+  flex-shrink: 0;
+  min-width: 0 !important;
+}
+.btn-tab-action:hover:not(:disabled) {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* rename — subtle blue */
+.btn-tab-rename:hover { background: rgba(99,102,241,0.18) !important; color: var(--accent) !important; }
+
+/* share */
+.btn-tab-share { }
+.btn-tab-share.sharing-on { color: #22c55e !important; }
+.btn-tab-share.sharing-on:hover { background: rgba(34,197,94,0.15) !important; }
+.btn-tab-share.sharing-off:hover { background: rgba(99,102,241,0.12) !important; color: var(--accent) !important; }
+.btn-tab-share.sharing-locked { opacity: 0.5; cursor: default !important; }
+
+/* preview — subtle teal */
+.btn-tab-preview:hover { background: rgba(20,184,166,0.18) !important; color: #14b8a6 !important; }
+
+/* delete — red */
+.btn-tab-delete { opacity: 0.55; }
+.btn-tab-delete:hover { background: rgba(244,63,94,0.15) !important; color: var(--danger) !important; opacity: 1; }
+
+/* Scroll chevron buttons */
+.tab-scroll-btn {
+  flex-shrink: 0;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-secondary) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: none !important;
+}
+.tab-scroll-btn:hover {
+  background: rgba(99,102,241,0.12) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* + Add Tab button — always at right, never scrolls away */
+.btn-add-tab {
+  flex-shrink: 0;
+  height: 36px !important;
+  width: 36px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px dashed var(--border) !important;
+  border-radius: 10px !important;
+  color: var(--text-secondary) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
 .btn-add-tab:hover {
   background: rgba(99, 102, 241, 0.1) !important;
-  color: var(--accent) !important;
   border-color: var(--accent) !important;
-  transform: scale(1.08);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2) !important;
+  border-style: solid !important;
+  color: var(--accent) !important;
+  transform: scale(1.06) !important;
+  box-shadow: 0 0 16px rgba(99,102,241,0.2) !important;
+}
+
+/* shared tab colours */
+.tab.tab-public { border-color: rgba(34, 197, 94, 0.25); }
+.tab.tab-public.active { border-color: rgba(34, 197, 94, 0.5); color: #22c55e; background: rgba(34,197,94,0.1); }
+.tab.tab-default-public { border-color: rgba(99,102,241,0.35); }
+
+/* spinner inside share button */
+.tab-share-spinner {
+  width: 10px; height: 10px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
 }
 
 /* Table */

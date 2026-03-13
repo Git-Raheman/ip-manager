@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './index';
 import DiscoveryModal from './DiscoveryModal';
 import ForceGraph2D from 'react-force-graph-2d';
@@ -7,7 +7,8 @@ import {
     Search, Edit2, Trash2, Check, X, Activity, Plus, LogOut, Users,
     Server, RefreshCw, Save, AlertCircle, MoreVertical, CheckSquare, Square,
     Lock, Shield, Power, Key, LayoutGrid, List, Network, FileText, Upload, Download,
-    CheckCircle, XCircle, Settings, Clock, Calendar, Globe, Eye, EyeOff, Share2
+    CheckCircle, XCircle, Settings, Clock, Calendar, Globe, Eye, EyeOff, Share2,
+    ChevronLeft, ChevronRight, PenLine
 } from 'lucide-react';
 
 // ─── Public Tab Viewer Modal ──────────────────────────────────────────────────
@@ -2127,54 +2128,209 @@ const PingStatusModal = ({ isOpen, onClose, ipData, onRefresh }) => {
     );
 };
 
-const TabModal = ({ isOpen, onClose, onSave }) => {
+// ─── Tab Create / Rename Modal ───────────────────────────────────────────────
+const TabModal = ({ isOpen, onClose, onSave, editTab }) => {
+    const isRename = !!editTab;
     const [name, setName] = useState('');
     const [isPublic, setIsPublic] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setName(editTab ? editTab.name : '');
+            setIsPublic(editTab ? !!editTab.is_public : false);
+        }
+    }, [isOpen, editTab]);
+
     if (!isOpen) return null;
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(name, isPublic);
+        if (!name.trim()) return;
+        onSave(name.trim(), isPublic, editTab?.id);
         setName('');
         setIsPublic(false);
     };
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h3>Add New Tab</h3>
+                    <h3>{isRename ? 'Rename Tab' : 'Add New Tab'}</h3>
                     <button onClick={onClose}><X size={24} /></button>
                 </div>
                 <div className="modal-body">
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label>Tab Name</label>
-                            <input value={name} onChange={e => setName(e.target.value)} required autoFocus />
+                            <input
+                                value={name}
+                                onChange={e => setName(e.target.value)}
+                                required
+                                autoFocus
+                                placeholder="e.g. Production Servers"
+                            />
                         </div>
-                        <div className="form-group">
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                <span>Enable Public Sharing</span>
-                                <button
-                                    type="button"
-                                    className={`tab-share-toggle ${isPublic ? 'on' : 'off'}`}
-                                    onClick={() => setIsPublic(p => !p)}
-                                >
-                                    <span className="tab-share-toggle-knob"></span>
-                                    <Globe size={12} style={{ position: 'absolute', right: '8px', opacity: isPublic ? 1 : 0, transition: 'opacity 0.2s' }} />
-                                </button>
-                            </label>
-                            {isPublic && (
-                                <p style={{ fontSize: '12px', color: '#22c55e', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                    <Globe size={12} /> This tab will be publicly accessible without login
-                                </p>
-                            )}
-                        </div>
+                        {!isRename && (
+                            <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                    <span>Enable Public Sharing</span>
+                                    <button
+                                        type="button"
+                                        className={`tab-share-toggle ${isPublic ? 'on' : 'off'}`}
+                                        onClick={() => setIsPublic(p => !p)}
+                                    >
+                                        <span className="tab-share-toggle-knob"></span>
+                                        <Globe size={12} style={{ position: 'absolute', right: '8px', opacity: isPublic ? 1 : 0, transition: 'opacity 0.2s' }} />
+                                    </button>
+                                </label>
+                                {isPublic && (
+                                    <p style={{ fontSize: '12px', color: '#22c55e', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <Globe size={12} /> This tab will be publicly accessible without login
+                                    </p>
+                                )}
+                            </div>
+                        )}
                         <div className="modal-actions">
                             <button type="button" onClick={onClose} className="btn-cancel">Cancel</button>
-                            <button type="submit" className="btn-save"><Plus size={16} /> Create Tab</button>
+                            <button type="submit" className="btn-save">
+                                {isRename ? <><Check size={16} /> Save Name</> : <><Plus size={16} /> Create Tab</>}
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
+        </div>
+    );
+};
+
+// ─── Smart Tab Bar  ───────────────────────────────────────────────────────────
+const TabBar = ({ tabs, activeTab, onSelect, onDelete, onRename, onToggleSharing, onPreview, onAdd, userRole, sharingTogglingId }) => {
+    const scrollRef = useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    const checkScroll = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 4);
+        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    }, []);
+
+    useEffect(() => {
+        checkScroll();
+        const el = scrollRef.current;
+        if (!el) return;
+        el.addEventListener('scroll', checkScroll);
+        const ro = new ResizeObserver(checkScroll);
+        ro.observe(el);
+        return () => { el.removeEventListener('scroll', checkScroll); ro.disconnect(); };
+    }, [tabs, checkScroll]);
+
+    // Scroll active tab into view when it changes
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const activeEl = el.querySelector('.tab.active');
+        if (activeEl) {
+            activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
+    }, [activeTab]);
+
+    const scroll = (dir) => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollBy({ left: dir * 200, behavior: 'smooth' });
+    };
+
+    return (
+        <div className="tabs-wrapper">
+            {canScrollLeft && (
+                <button className="tab-scroll-btn tab-scroll-left" onClick={() => scroll(-1)} title="Scroll left">
+                    <ChevronLeft size={16} />
+                </button>
+            )}
+            <div className="tabs-container" ref={scrollRef}>
+                <div className="tabs">
+                    {tabs.map(tab => (
+                        <div
+                            key={tab.id}
+                            className={`tab ${activeTab === tab.id ? 'active' : ''} ${tab.is_default_public ? 'tab-default-public' : ''} ${tab.is_public && tab.id !== 'all' ? 'tab-public' : ''}`}
+                            onClick={() => onSelect(tab.id)}
+                            title={tab.name}
+                        >
+                            {tab.id === 'all' ? <LayoutGrid size={16} /> : tab.is_default_public ? <Share2 size={15} /> : tab.is_public ? <Globe size={15} /> : <FileText size={16} />}
+                            <span className="tab-name-text">{tab.name}</span>
+                            {tab.id !== 'all' && userRole === 'admin' && (
+                                <div className="tab-action-group" onClick={e => e.stopPropagation()}>
+                                    {/* Rename */}
+                                    <button
+                                        className="btn-tab-action btn-tab-rename"
+                                        onClick={(e) => { e.stopPropagation(); onRename(tab); }}
+                                        title="Rename Tab"
+                                    >
+                                        <PenLine size={12} />
+                                    </button>
+                                    {/* Public share toggle */}
+                                    <button
+                                        className={`btn-tab-action btn-tab-share ${tab.is_public ? 'sharing-on' : 'sharing-off'} ${tab.is_default_public ? 'sharing-locked' : ''}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (tab.is_default_public) return;
+                                            onToggleSharing(tab);
+                                        }}
+                                        title={tab.is_default_public ? 'Default public tab (always shared)' : tab.is_public ? 'Disable public sharing' : 'Enable public sharing'}
+                                        disabled={sharingTogglingId === tab.id}
+                                    >
+                                        {sharingTogglingId === tab.id ? (
+                                            <span className="tab-share-spinner"></span>
+                                        ) : tab.is_default_public ? (
+                                            <Lock size={12} />
+                                        ) : tab.is_public ? (
+                                            <Globe size={12} />
+                                        ) : (
+                                            <EyeOff size={12} />
+                                        )}
+                                    </button>
+                                    {/* Preview public tab */}
+                                    {tab.is_public && (
+                                        <button
+                                            className="btn-tab-action btn-tab-preview"
+                                            onClick={(e) => { e.stopPropagation(); onPreview(tab); }}
+                                            title="Preview public view"
+                                        >
+                                            <Eye size={12} />
+                                        </button>
+                                    )}
+                                    {/* Delete tab */}
+                                    {!tab.is_default_public && (
+                                        <button
+                                            className="btn-tab-action btn-tab-delete"
+                                            onClick={(e) => { e.stopPropagation(); onDelete(tab.id); }}
+                                            title="Delete Tab"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {canScrollRight && (
+                <button className="tab-scroll-btn tab-scroll-right" onClick={() => scroll(1)} title="Scroll right">
+                    <ChevronRight size={16} />
+                </button>
+            )}
+            {userRole === 'admin' && (
+                <button
+                    className="btn-add-tab"
+                    onClick={onAdd}
+                    title="Add New Tab"
+                >
+                    <Plus size={18} />
+                </button>
+            )}
         </div>
     );
 };
@@ -2196,6 +2352,7 @@ export default function App() {
     const [showMyAccount, setShowMyAccount] = useState(false);
     const [showBackupModal, setShowBackupModal] = useState(false);
     const [showTabModal, setShowTabModal] = useState(false);
+    const [renamingTab, setRenamingTab] = useState(null); // tab object being renamed
     const [pingModalData, setPingModalData] = useState(null);
     const [sharingTogglingId, setSharingTogglingId] = useState(null);
     const [publicViewTab, setPublicViewTab] = useState(null);
@@ -2318,18 +2475,36 @@ export default function App() {
         fetchIps();
     };
 
-    const handleAddTab = async (name, isPublic) => {
+    const handleAddTab = async (name, isPublic, tabId) => {
         const token = localStorage.getItem('token');
-        const res = await fetch('/api/tabs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ name, is_public: !!isPublic })
-        });
-        if (res.ok) {
-            fetchTabs();
-            setShowTabModal(false);
+        if (tabId) {
+            // Rename existing tab
+            const res = await fetch(`/api/tabs/${tabId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                // Only update tabs state — no IP re-fetch needed
+                setTabs(prev => prev.map(t => t.id === tabId ? { ...t, name } : t));
+                setRenamingTab(null);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(err.error || 'Failed to rename tab');
+            }
         } else {
-            alert('Failed to add tab');
+            // Create new tab
+            const res = await fetch('/api/tabs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ name, is_public: !!isPublic })
+            });
+            if (res.ok) {
+                fetchTabs(); // Only refreshes tabs, not IPs
+                setShowTabModal(false);
+            } else {
+                alert('Failed to add tab');
+            }
         }
     };
 
@@ -2626,77 +2801,18 @@ export default function App() {
                                 </div>
                             </div>
 
-                            <div className="tabs-container">
-                                <div className="tabs">
-                                    {tabs.map(tab => (
-                                        <div
-                                            key={tab.id}
-                                            className={`tab ${activeTab === tab.id ? 'active' : ''} ${tab.is_default_public ? 'tab-default-public' : ''} ${tab.is_public && tab.id !== 'all' ? 'tab-public' : ''}`}
-                                            onClick={() => setActiveTab(tab.id)}
-                                        >
-                                            {tab.id === 'all' ? <LayoutGrid size={16} /> : tab.is_default_public ? <Share2 size={15} /> : tab.is_public ? <Globe size={15} /> : <FileText size={16} />}
-                                            {tab.name}
-                                            {tab.id !== 'all' && user.role === 'admin' && (
-                                                <div className="tab-action-group">
-                                                    {/* Public share toggle */}
-                                                    <button
-                                                        className={`btn-tab-share ${tab.is_public ? 'sharing-on' : 'sharing-off'} ${tab.is_default_public ? 'sharing-locked' : ''}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (tab.is_default_public) return;
-                                                            handleToggleTabSharing(tab);
-                                                        }}
-                                                        title={tab.is_default_public ? 'Default public tab (always shared)' : tab.is_public ? 'Disable public sharing' : 'Enable public sharing'}
-                                                        disabled={sharingTogglingId === tab.id}
-                                                    >
-                                                        {sharingTogglingId === tab.id ? (
-                                                            <span className="tab-share-spinner"></span>
-                                                        ) : tab.is_default_public ? (
-                                                            <Lock size={13} />
-                                                        ) : tab.is_public ? (
-                                                            <Globe size={13} />
-                                                        ) : (
-                                                            <EyeOff size={13} />
-                                                        )}
-                                                    </button>
-                                                    {/* Preview public tab */}
-                                                    {tab.is_public && (
-                                                        <button
-                                                            className="btn-tab-preview"
-                                                            onClick={(e) => { e.stopPropagation(); setPublicViewTab(tab); }}
-                                                            title="Preview public view"
-                                                        >
-                                                            <Eye size={13} />
-                                                        </button>
-                                                    )}
-                                                    {/* Delete tab (not for default public) */}
-                                                    {!tab.is_default_public && (
-                                                        <button
-                                                            className="btn-tab-delete"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteTab(tab.id);
-                                                            }}
-                                                            title="Delete Tab"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                    {user.role === 'admin' && (
-                                        <button
-                                            className="btn-add-tab"
-                                            onClick={() => setShowTabModal(true)}
-                                            title="Add New Tab"
-                                        >
-                                            <Plus size={20} />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
+                            <TabBar
+                                tabs={tabs}
+                                activeTab={activeTab}
+                                onSelect={setActiveTab}
+                                onDelete={handleDeleteTab}
+                                onRename={(tab) => setRenamingTab(tab)}
+                                onToggleSharing={handleToggleTabSharing}
+                                onPreview={(tab) => setPublicViewTab(tab)}
+                                onAdd={() => setShowTabModal(true)}
+                                userRole={user.role}
+                                sharingTogglingId={sharingTogglingId}
+                            />
 
                             {displayMode === 'pool' && <PoolView ips={allIps} onEdit={setEditingIp} />}
                             {displayMode === 'map' && <NetworkMap ips={allIps} tabs={tabs} />}
@@ -2915,6 +3031,7 @@ export default function App() {
             <ChangePasswordModal isOpen={showMyAccount} onClose={() => setShowMyAccount(false)} onSave={handleMyPasswordUpdate} title="My Account - Change Password" requireOldPassword={true} />
             <BackupModal isOpen={showBackupModal} onClose={() => setShowBackupModal(false)} />
             <TabModal isOpen={showTabModal} onClose={() => setShowTabModal(false)} onSave={handleAddTab} />
+            <TabModal isOpen={!!renamingTab} onClose={() => setRenamingTab(null)} onSave={handleAddTab} editTab={renamingTab} />
             <PingStatusModal isOpen={!!pingModalData} onClose={() => setPingModalData(null)} ipData={pingModalData} onRefresh={fetchIps} />
             {editingIp && <EditModal ip={editingIp} tabs={tabs} onClose={() => setEditingIp(null)} onSave={handleEdit} />}
             {publicViewTab && <PublicTabViewer tab={publicViewTab} onClose={() => setPublicViewTab(null)} />}

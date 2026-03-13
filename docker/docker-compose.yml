@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: dockeraheman/ip-manager-db:1.1
+    image: dockeraheman/ip-manager-db:1.2
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -17,7 +17,7 @@ services:
       - ip-manager
 
   backend:
-    image: dockeraheman/ip-manager-backend:1.1
+    image: dockeraheman/ip-manager-backend:1.2
     environment:
       DATABASE_URL: postgres://user:password@postgres:5432/ipmanager
       PORT: 3000
@@ -34,7 +34,7 @@ services:
       start_period: 30s
 
   frontend:
-    image: dockeraheman/ip-manager-frontend:1.1
+    image: dockeraheman/ip-manager-frontend:1.2
     networks:
       - ip-manager
     healthcheck:
@@ -45,9 +45,9 @@ services:
       start_period: 30s
 
   proxy:
-    image: dockeraheman/ip-manager-proxy:1.1
+    image: dockeraheman/ip-manager-proxy:1.2
     ports:
-      - "80:8080"
+      - "80:80"
     depends_on:
       - frontend
       - backend
