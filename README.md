@@ -157,6 +157,16 @@ Think of IP-Manager as a **smart post office** for your network. Here's how the 
 | ![Alpine Linux](https://img.shields.io/badge/-Alpine_Linux-0D597F?logo=alpine-linux&logoColor=white) | **Alpine Linux** | Tiny, secure base for all Docker images |
 
 ---
+## 🚀 Quick up by prebuild images
+
+```bash
+git clone https://github.com/Git-Raheman/ip-manager.git
+cd ip-manager
+```
+
+```bash
+docker compose -f docker/docker-compose.yml up -d
+```     
 
 ## 🚀 Quick Start
 
