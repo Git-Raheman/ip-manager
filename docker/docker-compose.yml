@@ -54,7 +54,7 @@ services:
     networks:
       - ip-manager
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:80/health" ]
       interval: 60s
       timeout: 10s
       retries: 5

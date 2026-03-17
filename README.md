@@ -165,7 +165,7 @@ Think of IP-Manager as a **smart post office** for your network. Here's how the 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/ip-manager.git
+git clone https://github.com/Git-Raheman/ip-manager.git
 cd ip-manager
 ```
 
