@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IP Manager</title>
+    <meta name="description" content="Multi-user IP Address Management system with Local &amp; LDAP/Active Directory authentication, granular role-based access control, interactive subnet visualizer, and audit logging." />
+    <meta property="og:title" content="IP Manager" />
+    <meta property="og:description" content="Multi-user IP Address Management system with Local &amp; LDAP/Active Directory authentication, granular role-based access control, interactive subnet visualizer, and audit logging." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Favicon and App Icons -->
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="shortcut icon" href="/icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon.png" />
+    <meta name="apple-mobile-web-app-title" content="IP-manager" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Google Fonts: Geist Sans & Geist Mono (Vercel Design Language) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- Anti-flash theme script -->
+    <script>
+      (function() {
+        try {
+          var savedTheme = localStorage.getItem('ipam_theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen w-full overflow-x-hidden antialiased">
+    <div id="root" class="min-h-screen w-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

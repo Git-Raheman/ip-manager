@@ -1,0 +1,63 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Application Server (React 19 Frontend + Express API Server)
+  # ----------------------------------------------------------------------------
+  ip-manager-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ip-manager-app
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3000}:80"
+    depends_on:
+      ip-manager-db:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - APP_PORT=80
+      - DATABASE_URL=postgresql://ip_manager_admin:ip_manager_secure_password_2026@ip-manager-db:5432/ip_manager_db
+      - DATA_DIR=/app/data
+    volumes:
+      - ip_manager_app_data:/app/data
+    networks:
+      - ip-manager-network
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:80/api/health > /dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ----------------------------------------------------------------------------
+  # Relational Database Server (PostgreSQL 16 Alpine)
+  # ----------------------------------------------------------------------------
+  ip-manager-db:
+    image: postgres:16-alpine
+    container_name: ip-manager-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=ip_manager_admin
+      - POSTGRES_PASSWORD=ip_manager_secure_password_2026
+      - POSTGRES_DB=ip_manager_db
+    volumes:
+      - ip_manager_db_data:/var/lib/postgresql/data
+    networks:
+      - ip-manager-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ip_manager_admin -d ip_manager_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 3s
+
+volumes:
+  ip_manager_db_data:
+    name: ip_manager_db_data
+  ip_manager_app_data:
+    name: ip_manager_app_data
+
+networks:
+  ip-manager-network:
+    name: ip-manager-network
+    driver: bridge

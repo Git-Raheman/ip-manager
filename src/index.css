@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-canvas: var(--geist-canvas);
+  --color-elevated: var(--geist-card);
+  --color-hairline: var(--geist-border);
+  --color-ink: var(--geist-ink);
+  --color-body: var(--geist-body);
+  --color-mute: var(--geist-mute);
+  --color-faint: var(--geist-faint);
+
+  --color-slate-950: var(--geist-canvas);
+  --color-slate-900: var(--geist-card);
+  --color-slate-850: var(--geist-card-subtle);
+  --color-slate-800: var(--geist-border);
+  --color-slate-700: var(--geist-border-soft);
+  --color-slate-600: var(--geist-mute);
+  --color-slate-500: var(--geist-faint);
+  --color-slate-400: var(--geist-body);
+  --color-slate-300: var(--geist-body);
+  --color-slate-200: var(--geist-ink);
+  --color-slate-100: var(--geist-ink);
+  --color-slate-50: var(--geist-ink);
+}
+
+:root {
+  --geist-canvas: #fafafa;
+  --geist-card: #ffffff;
+  --geist-card-subtle: #f7f7f8;
+  --geist-border: #ebebeb;
+  --geist-border-soft: #f2f2f2;
+  --geist-ink: #171717;
+  --geist-body: #4d4d4d;
+  --geist-mute: #8f8f8f;
+  --geist-faint: #a1a1a1;
+  --geist-link: #0070f3;
+  --geist-shadow-whisper: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --geist-shadow-floating: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.dark {
+  --geist-canvas: #000000;
+  --geist-card: #0d0d0d;
+  --geist-card-subtle: #141414;
+  --geist-border: #262626;
+  --geist-border-soft: #1c1c1c;
+  --geist-ink: #ededed;
+  --geist-body: #a1a1a1;
+  --geist-mute: #737373;
+  --geist-faint: #525252;
+  --geist-link: #0070f3;
+  --geist-shadow-whisper: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --geist-shadow-floating: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--geist-canvas);
+    color: var(--geist-ink);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    background-color: var(--geist-canvas);
+    color: var(--geist-ink);
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Ensure headings/text/inputs with text-white adapt to dark ink in light mode unless on buttons/badges/solid backgrounds */
+html:not(.dark) h1.text-white,
+html:not(.dark) h2.text-white,
+html:not(.dark) h3.text-white,
+html:not(.dark) h4.text-white,
+html:not(.dark) h5.text-white,
+html:not(.dark) h6.text-white,
+html:not(.dark) p.text-white,
+html:not(.dark) td.text-white,
+html:not(.dark) th.text-white,
+html:not(.dark) label.text-white,
+html:not(.dark) strong.text-white,
+html:not(.dark) b.text-white,
+html:not(.dark) i.text-white,
+html:not(.dark) small.text-white,
+html:not(.dark) code.text-white,
+html:not(.dark) a.text-white {
+  color: var(--geist-ink);
+}
+
+html:not(.dark) span.text-white:not(
+  button *,
+  .geist-btn-primary *,
+  [class*="bg-blue-"] *,
+  [class*="bg-emerald-"] *,
+  [class*="bg-rose-"] *,
+  [class*="bg-purple-"] *,
+  [class*="bg-indigo-"] *,
+  [class*="bg-cyan-"] *,
+  [class*="bg-amber-"] *,
+  [class*="bg-teal-"] *,
+  [class*="bg-red-"] *,
+  [class*="bg-green-"] *,
+  [class*="bg-[#171717]"] *,
+  [class*="bg-black"] *,
+  [class*="bg-neutral-900"] *,
+  [class*="bg-neutral-800"] *
+) {
+  color: var(--geist-ink);
+}
+
+html:not(.dark) div.text-white:not(
+  button *,
+  .geist-btn-primary,
+  .geist-btn-primary *,
+  [class*="bg-blue-"],
+  [class*="bg-blue-"] *,
+  [class*="bg-emerald-"],
+  [class*="bg-emerald-"] *,
+  [class*="bg-rose-"],
+  [class*="bg-rose-"] *,
+  [class*="bg-purple-"],
+  [class*="bg-purple-"] *,
+  [class*="bg-indigo-"],
+  [class*="bg-indigo-"] *,
+  [class*="bg-cyan-"],
+  [class*="bg-cyan-"] *,
+  [class*="bg-amber-"],
+  [class*="bg-amber-"] *,
+  [class*="bg-teal-"],
+  [class*="bg-teal-"] *,
+  [class*="bg-red-"],
+  [class*="bg-red-"] *,
+  [class*="bg-green-"],
+  [class*="bg-green-"] *,
+  [class*="bg-[#171717]"],
+  [class*="bg-[#171717]"] *,
+  [class*="bg-black"],
+  [class*="bg-black"] *,
+  [class*="bg-neutral-900"],
+  [class*="bg-neutral-900"] *,
+  [class*="bg-neutral-800"],
+  [class*="bg-neutral-800"] *
+) {
+  color: var(--geist-ink);
+}
+
+html:not(.dark) input.text-white,
+html:not(.dark) textarea.text-white,
+html:not(.dark) select.text-white {
+  color: var(--geist-ink);
+}
+
+/* Vercel Geist Utility Classes */
+.geist-mesh-hero {
+  background-image: radial-gradient(at 0% 0%, rgba(80, 227, 194, 0.18) 0px, transparent 50%),
+                    radial-gradient(at 50% 0%, rgba(0, 112, 243, 0.15) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(121, 40, 202, 0.14) 0px, transparent 50%);
+}
+
+.dark .geist-mesh-hero {
+  background-image: radial-gradient(at 0% 0%, rgba(80, 227, 194, 0.12) 0px, transparent 50%),
+                    radial-gradient(at 50% 0%, rgba(0, 112, 243, 0.16) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(121, 40, 202, 0.12) 0px, transparent 50%);
+}
+
+.geist-hairline {
+  border-width: 1px;
+  border-color: var(--geist-border);
+}
+
+.geist-card {
+  background-color: var(--geist-card);
+  border: 1px solid var(--geist-border);
+  box-shadow: var(--geist-shadow-whisper);
+}
+
+.geist-pill {
+  border-radius: 9999px;
+}
+
+.geist-btn-primary {
+  background-color: #171717;
+  color: #ffffff;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.dark .geist-btn-primary {
+  background-color: #ededed;
+  color: #000000;
+}
+
+.geist-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.geist-btn-secondary {
+  background-color: var(--geist-card);
+  color: var(--geist-ink);
+  border: 1px solid var(--geist-border);
+  transition: all 0.15s ease;
+}
+
+.geist-btn-secondary:hover {
+  background-color: var(--geist-border-soft);
+}
