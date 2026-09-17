@@ -222,8 +222,8 @@ docker compose up --build -d
 
 | Variable | Default | Purpose |
 | :--- | :--- | :--- |
-| `APP_PORT` | `3000` | Port where the server listens inside |
-| `HOST_PORT` | `3000` | Port exposed to your browser (`http://localhost:3000`) |
+| `APP_PORT` | `80` (Docker) / `3000` (Local) | Port where the server listens inside the container / local process |
+| `HOST_PORT` | `3000` | Port exposed on your host machine to your browser (`http://localhost:3000`) |
 | `DATABASE_URL` | `postgresql://...` | PostgreSQL connection string. If blank or unreachable, falls back to disk automatically. |
 | `DATA_DIR` | `./data` | Local folder for persistent database files & exports |
 
@@ -234,7 +234,7 @@ docker compose up --build -d
 * **Do I have to install PostgreSQL?**
   No! If you don't install PostgreSQL, the app automatically stores everything safely in `data/ipam-database.json`.
 * **Port 3000 is already in use?**
-  Open `.env`, change `HOST_PORT=3001`, and rerun `docker compose up -d` (or set `APP_PORT=3001` in `.env`).
+  Open `.env`, change `HOST_PORT=3001`, and rerun `docker compose up -d` (for local Node.js dev without Docker, change `APP_PORT=3001`).
 * **Ping scanner not finding devices on Linux?**
   Run `sudo apt install -y iputils-ping`.
 * **Reset all data to clean state?**
