@@ -111,13 +111,7 @@ function normalizeState(data: IPAMDatabase): IPAMDatabase {
     })(),
     auditLogs: Array.isArray(state.auditLogs) ? state.auditLogs : [],
     deviceClassifications: (() => {
-      let list = Array.isArray(state.deviceClassifications) ? [...state.deviceClassifications] : [];
-      // Ensure baseline classifications exist so user always has standard profiles (including CCTV, Server, Router, etc.)
-      for (const baseline of INITIAL_DEVICE_CLASSIFICATIONS) {
-        if (!list.some((existing: any) => existing.code?.toLowerCase() === baseline.code.toLowerCase() || existing.id === baseline.id)) {
-          list.push(baseline);
-        }
-      }
+      const list = Array.isArray(state.deviceClassifications) ? state.deviceClassifications : [];
       return list.map((dc: any) => ({
         id: typeof dc?.id === 'string' ? dc.id : `devclass-${(dc?.code || 'custom').toLowerCase()}`,
         name: typeof dc?.name === 'string' ? dc.name : 'Unnamed Classification',

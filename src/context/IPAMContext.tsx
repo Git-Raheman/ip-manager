@@ -422,7 +422,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (d.ldapConfig) setLdapConfig(d.ldapConfig);
           if (Array.isArray(d.auditLogs)) setAuditLogs(d.auditLogs);
-          if (Array.isArray(d.deviceClassifications) && d.deviceClassifications.length > 0) {
+          if (Array.isArray(d.deviceClassifications)) {
             setDeviceClassifications(d.deviceClassifications);
           }
           if (d.auditSettings) setAuditSettings(d.auditSettings);
@@ -1271,7 +1271,9 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: new Date().toISOString(),
     };
 
-    setDeviceClassifications((prev) => [...prev, newClass]);
+    const updatedClasses = [...deviceClassifications, newClass];
+    setDeviceClassifications(updatedClasses);
+    syncImmediate({ deviceClassifications: updatedClasses });
 
     logAudit(
       'DEVICE_CLASS_CREATE',
@@ -1310,9 +1312,11 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updates.code = cleanCode;
     }
 
-    setDeviceClassifications((prev) =>
-      prev.map((dc) => (dc.id === id ? { ...dc, ...updates, updatedAt: new Date().toISOString() } : dc))
+    const updatedClasses = deviceClassifications.map((dc) =>
+      dc.id === id ? { ...dc, ...updates, updatedAt: new Date().toISOString() } : dc
     );
+    setDeviceClassifications(updatedClasses);
+    syncImmediate({ deviceClassifications: updatedClasses });
 
     logAudit(
       'DEVICE_CLASS_UPDATE',
@@ -1348,7 +1352,9 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     }
 
-    setDeviceClassifications((prev) => prev.filter((dc) => dc.id !== id));
+    const updatedClasses = deviceClassifications.filter((dc) => dc.id !== id);
+    setDeviceClassifications(updatedClasses);
+    syncImmediate({ deviceClassifications: updatedClasses });
 
     logAudit(
       'DEVICE_CLASS_DELETE',
@@ -2190,8 +2196,8 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setDeviceClassifications(merged);
           deviceClassesRestored = sanitizedIncoming.length;
         }
-      } else if (deviceClassifications.length === 0) {
-        // Fallback to initial classifications if current state is empty
+      } else if (deviceClassifications.length === 0 && INITIAL_DEVICE_CLASSIFICATIONS.length > 0) {
+        // Fallback to initial classifications if current state is empty and baseline exists
         nextDeviceClassifications = INITIAL_DEVICE_CLASSIFICATIONS;
         setDeviceClassifications(INITIAL_DEVICE_CLASSIFICATIONS);
         deviceClassesRestored = INITIAL_DEVICE_CLASSIFICATIONS.length;
