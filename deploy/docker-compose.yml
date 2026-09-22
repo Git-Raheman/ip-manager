@@ -17,7 +17,7 @@ services:
   # Pre-built Docker Hub Image: dockeraheman/ip_manager_v2_app
   # ----------------------------------------------------------------------------
   ip-manager-app:
-    image: dockeraheman/ip_manager_v2_app:v2.0.1
+    image: dockeraheman/ip_manager_v2_app:v2.0.2
     container_name: ip-manager-app
     restart: unless-stopped
 
@@ -68,7 +68,7 @@ services:
   # Pre-built Docker Hub Image: dockeraheman/ip_manager_v2_db
   # ----------------------------------------------------------------------------
   ip-manager-db:
-    image: dockeraheman/ip_manager_v2_db:v2.0.1
+    image: dockeraheman/ip_manager_v2_db:v2.0.2
     container_name: ip-manager-db
     restart: unless-stopped
 
