@@ -56,95 +56,24 @@ import {
 } from 'lucide-react';
 import { SubnetScannerModal } from './SubnetScannerModal';
 import { SubnetBulkImportModal } from './SubnetBulkImportModal';
+import { renderDeviceIcon as renderUnifiedDeviceIcon } from '../utils/deviceIcons';
 
-export const CLASSIFICATION_COLOR_MAP: Record<
-  string,
-  {
-    border: string;
-    bg: string;
-    text: string;
-    badge: string;
-    heatmapBg: string;
-    dot: string;
-  }
-> = {
-  blue: {
-    border: 'border-blue-500/40',
-    bg: 'bg-blue-500/10',
-    text: 'text-blue-400',
-    badge: 'bg-blue-950/80 text-blue-300 border-blue-800',
-    heatmapBg: 'bg-blue-600 text-white hover:bg-blue-500 border-blue-400/50',
-    dot: 'bg-blue-400',
-  },
-  purple: {
-    border: 'border-purple-500/40',
-    bg: 'bg-purple-500/10',
-    text: 'text-purple-400',
-    badge: 'bg-purple-950/80 text-purple-300 border-purple-800',
-    heatmapBg: 'bg-purple-600 text-white hover:bg-purple-500 border-purple-400/50',
-    dot: 'bg-purple-400',
-  },
-  cyan: {
-    border: 'border-cyan-500/40',
-    bg: 'bg-cyan-500/10',
-    text: 'text-cyan-400',
-    badge: 'bg-cyan-950/80 text-cyan-300 border-cyan-800',
-    heatmapBg: 'bg-cyan-600 text-white hover:bg-cyan-500 border-cyan-400/50',
-    dot: 'bg-cyan-400',
-  },
-  rose: {
-    border: 'border-rose-500/40',
-    bg: 'bg-rose-500/10',
-    text: 'text-rose-400',
-    badge: 'bg-rose-950/80 text-rose-300 border-rose-800',
-    heatmapBg: 'bg-rose-600 text-white hover:bg-rose-500 border-rose-400/50',
-    dot: 'bg-rose-400',
-  },
-  indigo: {
-    border: 'border-indigo-500/40',
-    bg: 'bg-indigo-500/10',
-    text: 'text-indigo-400',
-    badge: 'bg-indigo-950/80 text-indigo-300 border-indigo-800',
-    heatmapBg: 'bg-indigo-600 text-white hover:bg-indigo-500 border-indigo-400/50',
-    dot: 'bg-indigo-400',
-  },
-  emerald: {
-    border: 'border-emerald-500/40',
-    bg: 'bg-emerald-500/10',
-    text: 'text-emerald-400',
-    badge: 'bg-emerald-950/80 text-emerald-300 border-emerald-800',
-    heatmapBg: 'bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-400/50',
-    dot: 'bg-emerald-400',
-  },
-  amber: {
-    border: 'border-amber-500/40',
-    bg: 'bg-amber-500/10',
-    text: 'text-amber-400',
-    badge: 'bg-amber-950/80 text-amber-300 border-amber-800',
-    heatmapBg: 'bg-amber-600 text-slate-950 font-bold hover:bg-amber-500 border-amber-400/50',
-    dot: 'bg-amber-400',
-  },
-  slate: {
-    border: 'border-slate-500/40',
-    bg: 'bg-slate-500/10',
-    text: 'text-slate-300',
-    badge: 'bg-slate-800 text-slate-300 border-slate-700',
-    heatmapBg: 'bg-slate-700 text-slate-200 hover:bg-slate-600 border-slate-600',
-    dot: 'bg-slate-400',
-  },
-};
-
-export function getClassificationTheme(colorName?: string) {
-  if (!colorName) return CLASSIFICATION_COLOR_MAP.blue;
-  return CLASSIFICATION_COLOR_MAP[colorName.toLowerCase()] || CLASSIFICATION_COLOR_MAP.blue;
-}
+import { CLASSIFICATION_COLOR_MAP, getColorTheme as getClassificationTheme } from '../utils/deviceColors';
+export { CLASSIFICATION_COLOR_MAP, getClassificationTheme };
 
 interface SubnetDetailViewProps {
   subnetId: string;
   onBack: () => void;
+  targetIp?: string;
+  initialAction?: 'view' | 'edit' | 'allocate';
 }
 
-export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, onBack }) => {
+export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
+  subnetId,
+  onBack,
+  targetIp,
+  initialAction,
+}) => {
   const {
     subnets,
     ips,
@@ -240,44 +169,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
     const iconName = dc?.icon || type?.toLowerCase();
     const colorClass = theme.text;
     const cls = customClassName || `w-4 h-4 ${colorClass}`;
-
-    switch (iconName) {
-      case 'router':
-        return <Router className={cls} />;
-      case 'network':
-      case 'switch':
-        return <Network className={cls} />;
-      case 'shield':
-      case 'firewall':
-        return <Shield className={cls} />;
-      case 'laptop':
-      case 'workstation':
-        return <Laptop className={cls} />;
-      case 'printer':
-        return <Printer className={cls} />;
-      case 'hard-drive':
-      case 'storage':
-        return <HardDrive className={cls} />;
-      case 'wifi':
-        return <Wifi className={cls} />;
-      case 'database':
-        return <Database className={cls} />;
-      case 'terminal':
-        return <Terminal className={cls} />;
-      case 'smartphone':
-        return <Smartphone className={cls} />;
-      case 'tablet':
-        return <Tablet className={cls} />;
-      case 'radio':
-        return <Radio className={cls} />;
-      case 'box':
-        return <Box className={cls} />;
-      case 'cpu':
-      case 'vm':
-        return <Cpu className={cls} />;
-      default:
-        return <Server className={cls} />;
-    }
+    return renderUnifiedDeviceIcon(iconName, cls);
   };
 
   if (!subnet) {
@@ -556,6 +448,27 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
     setModalOpen(true);
   };
 
+  // Target IP auto-focus & auto-open Allocate/Update form if navigated from Dashboard
+  const hasAutoHandledTarget = React.useRef(false);
+  useEffect(() => {
+    if (!targetIp || !subnet || hasAutoHandledTarget.current) return;
+    hasAutoHandledTarget.current = true;
+
+    // Jump to the specific block that contains this IP
+    handleJumpToIp(targetIp);
+    setSearchQuery(targetIp);
+
+    const existing = subnetIps.find((i) => i.ip === targetIp);
+
+    if (initialAction === 'edit' || (initialAction !== 'allocate' && existing && existing.status !== 'available')) {
+      if (existing) {
+        handleOpenEdit(existing);
+      }
+    } else if (initialAction === 'allocate' || !existing || existing.status === 'available') {
+      handleOpenAllocate(targetIp);
+    }
+  }, [targetIp, subnet, subnetIps, initialAction]);
+
   // Modal Submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -687,57 +600,60 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
   return (
     <div className="space-y-6">
       {/* Top Breadcrumbs & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs transition-colors">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+            className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer shadow-2xs"
             title="Back to subnets"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-[#171717] dark:text-white tracking-tight">{subnet.name}</h2>
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-semibold">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{subnet.name}</h2>
+              <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/80 dark:text-blue-400 dark:border-blue-800 font-semibold shadow-2xs">
                 {subnet.cidr}
               </span>
               {subnet.vlanId && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800 font-mono font-semibold shadow-2xs">
                   VLAN {subnet.vlanId}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {subnet.location} • Gateway: <span className="font-mono text-slate-200">{subnet.gateway}</span> • Netmask: <span className="font-mono text-slate-200">{subnet.mask}</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {subnet.location} • Gateway: <span className="font-mono text-slate-800 dark:text-slate-200 font-medium">{subnet.gateway}</span> • Netmask: <span className="font-mono text-slate-800 dark:text-slate-200 font-medium">{subnet.mask}</span>
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <button
+            id="btn-scan-subnet"
             onClick={() => setIsScannerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-blue-400 font-medium transition-colors border border-slate-700 hover:border-blue-500/50 cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-slate-800 text-xs text-blue-600 dark:text-blue-400 font-semibold transition-colors border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-500/50 cursor-pointer shadow-2xs"
             title="Scan subnet for active responsive hosts and unmanaged IPs"
           >
-            <Radar className="w-3.5 h-3.5 text-blue-400" />
+            <Radar className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
             <span>Scan Subnet</span>
           </button>
 
           {canAllocate && (
             <button
+              id="btn-bulk-import-ips"
               onClick={() => setIsBulkImportOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 font-medium transition-colors border border-slate-700 hover:border-emerald-500/50 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-slate-800 text-xs text-emerald-600 dark:text-emerald-400 font-semibold transition-colors border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-500/50 cursor-pointer shadow-2xs"
               title="Bulk import IPs from Excel (.xlsx) or CSV template"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Import IPs</span>
             </button>
           )}
 
           <button
+            id="btn-export-subnet-csv"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium transition-colors border border-slate-700 cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 font-medium transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer shadow-2xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
@@ -745,8 +661,9 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
           {canAllocate && (
             <button
+              id="btn-allocate-ip"
               onClick={() => handleOpenAllocate()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs text-white font-semibold shadow-sm transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs text-white font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Allocate IP</span>
@@ -755,12 +672,13 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
           {hasPermission('deleteSubnet', subnet.id) && (
             <button
+              id="btn-delete-subnet"
               onClick={() => {
                 setDeleteSubnetError(null);
                 setIsDeleteSubnetModalOpen(true);
               }}
               title="Delete Subnet"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800 text-xs font-medium transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-800 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Delete Subnet</span>
@@ -771,14 +689,14 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
       {/* Feedback Toast */}
       {feedbackToast && (
-        <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-between shadow-md">
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{feedbackToast.message}</span>
           </div>
           <button
             onClick={() => setFeedbackToast(null)}
-            className="text-emerald-400 hover:text-white text-xs font-semibold px-2 py-0.5 cursor-pointer"
+            className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-white text-xs font-semibold px-2 py-0.5 cursor-pointer"
           >
             ✕
           </button>
@@ -787,53 +705,53 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
       {/* Utilization & Capacity Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <span className="text-[11px] text-slate-400">Total Capacity</span>
-          <p className="text-xl font-bold text-[#171717] dark:text-white mt-0.5">{subnet.usableHosts}</p>
-          <p className="text-[10px] text-slate-500 font-mono">/{cidrInfo?.prefix} Prefix</p>
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Capacity</span>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1 tracking-tight">{subnet.usableHosts}</p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">/{cidrInfo?.prefix} Prefix</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <span className="text-[11px] text-emerald-400">Allocated IPs</span>
-          <p className="text-xl font-bold text-emerald-300 mt-0.5">{allocatedCount}</p>
-          <p className="text-[10px] text-slate-500">In active use</p>
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Allocated IPs</span>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1 tracking-tight">{allocatedCount}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">In active use</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <span className="text-[11px] text-amber-400">Reserved IPs</span>
-          <p className="text-xl font-bold text-amber-300 mt-0.5">{reservedCount}</p>
-          <p className="text-[10px] text-slate-500">Static reservations</p>
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Reserved IPs</span>
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-300 mt-1 tracking-tight">{reservedCount}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Static reservations</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <span className="text-[11px] text-sky-400">DHCP / Dynamic</span>
-          <p className="text-xl font-bold text-sky-300 mt-0.5">{dhcpCount}</p>
-          <p className="text-[10px] text-slate-500">Pool range</p>
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+          <span className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">DHCP / Dynamic</span>
+          <p className="text-2xl font-bold text-sky-600 dark:text-sky-300 mt-1 tracking-tight">{dhcpCount}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Pool range</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 col-span-2 sm:col-span-1">
-          <span className="text-[11px] text-slate-400">Available / Free</span>
-          <p className="text-xl font-bold text-slate-200 mt-0.5">{freeCount}</p>
-          <p className="text-[10px] text-slate-500">{100 - utilizationPct}% free space</p>
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 col-span-2 sm:col-span-1 shadow-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Available / Free</span>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-200 mt-1 tracking-tight">{freeCount}</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{100 - utilizationPct}% free space</p>
         </div>
       </div>
 
       {/* HARDWARE TYPOLOGY & CLASSIFICATION BREAKDOWN BAR */}
       {subnetClassificationBreakdown.totalWithClassification > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-2.5">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
-            <div className="flex items-center gap-2 font-semibold text-slate-200">
-              <Layers className="w-4 h-4 text-blue-400" />
+            <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-200">
+              <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Subnet Hardware Typology &amp; Classification Breakdown</span>
             </div>
-            <span className="text-slate-400 font-mono text-[11px]">
+            <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
               {subnetClassificationBreakdown.totalWithClassification} Classified Hosts (
               {Math.round((subnetClassificationBreakdown.totalWithClassification / (allocatedCount || 1)) * 100)}% of active IPs)
             </span>
           </div>
 
           {/* Visual Multi-Segment Color Progress Bar */}
-          <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800">
+          <div className="w-full h-3 bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden flex border border-slate-200 dark:border-slate-800">
             {(Object.entries(subnetClassificationBreakdown.counts) as [string, { count: number; classification?: DeviceClassification }][]).map(([key, item]) => {
               const theme = getClassificationTheme(item.classification?.color);
               const pct = (item.count / subnetClassificationBreakdown.totalWithClassification) * 100;
@@ -861,12 +779,12 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                   onClick={() => setClassificationFilter(isSelected ? 'all' : key)}
                   className={`text-[11px] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 font-medium transition-all cursor-pointer ${
                     theme.badge
-                  } ${isSelected ? 'ring-2 ring-blue-400 font-bold' : 'hover:opacity-90'}`}
+                  } ${isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400 font-bold' : 'hover:opacity-90'}`}
                   title={`Filter table by ${item.classification?.name || key}`}
                 >
                   <span className={`w-2 h-2 rounded-full ${theme.dot}`} />
-                  <span className="text-slate-200">{item.classification?.name || key}</span>
-                  <span className="text-slate-400 font-mono font-semibold">({item.count})</span>
+                  <span>{item.classification?.name || key}</span>
+                  <span className="opacity-75 font-mono font-semibold">({item.count})</span>
                 </button>
               );
             })}
@@ -875,16 +793,16 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
       )}
 
       {/* INTERACTIVE MULTI-BLOCK HEATMAP VISUALIZER */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2">
+      <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 gap-2">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span>Interactive Subnet Heatmap Matrix</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-800 font-mono font-medium">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800 font-mono font-medium border">
                 {currentBlock.startIp} - {currentBlock.endIp} ({gridIps.length} Addresses)
               </span>
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Click any block to inspect details or allocate the next available IP address.
             </p>
           </div>
@@ -892,14 +810,14 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
           {/* Color Mode Toggle & Legend */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             {/* Mode Switcher */}
-            <div className="flex items-center p-1 bg-slate-950 border border-slate-800 rounded-xl gap-1 text-xs">
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl gap-1 text-xs">
               <button
                 type="button"
                 onClick={() => setHeatmapColorMode('classification')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-medium text-[11px] flex items-center gap-1 ${
                   heatmapColorMode === 'classification'
                     ? 'bg-blue-600 text-white shadow-sm font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 <Layers className="w-3 h-3" />
@@ -911,7 +829,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-medium text-[11px] flex items-center gap-1 ${
                   heatmapColorMode === 'status'
                     ? 'bg-blue-600 text-white shadow-sm font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 <SlidersHorizontal className="w-3 h-3" />
@@ -924,48 +842,48 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
               {heatmapColorMode === 'classification' ? (
                 <>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-slate-800 border border-slate-700" />
-                    <span className="text-slate-400 text-[11px]">Free</span>
+                    <span className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700" />
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">Free</span>
                   </div>
                   {deviceClassifications.slice(0, 5).map((dc) => {
                     const theme = getClassificationTheme(dc.color);
                     return (
                       <div key={dc.id} className="flex items-center gap-1.5">
                         <span className={`w-3 h-3 rounded ${theme.dot}`} />
-                        <span className="text-slate-300 text-[11px]">{dc.name}</span>
+                        <span className="text-slate-700 dark:text-slate-300 text-[11px]">{dc.name}</span>
                       </div>
                     );
                   })}
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-purple-600" />
-                    <span className="text-slate-400 text-[11px]">GW/Net</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">GW/Net</span>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded bg-slate-800 border border-slate-700" />
-                    <span className="text-slate-400 text-[11px]">Free</span>
+                    <span className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700" />
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">Free</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-emerald-500" />
-                    <span className="text-slate-400 text-[11px]">Allocated</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">Allocated</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-amber-500" />
-                    <span className="text-slate-400 text-[11px]">Reserved</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">Reserved</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-sky-500" />
-                    <span className="text-slate-400 text-[11px]">DHCP</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">DHCP</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-rose-500" />
-                    <span className="text-slate-400 text-[11px]">Offline</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">Offline</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-purple-600" />
-                    <span className="text-slate-400 text-[11px]">GW/Net</span>
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px]">GW/Net</span>
                   </div>
                 </>
               )}
@@ -975,10 +893,10 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
         {/* Block / Range Selector Toolbar for large subnets (> 256 hosts) */}
         {allBlocks.length > 1 && (
-          <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-2.5">
-              <span className="font-semibold text-slate-200 flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-blue-400 shrink-0" />
+              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-blue-500 dark:text-blue-400 shrink-0" />
                 <span>Select /24 Range Block:</span>
               </span>
 
@@ -986,7 +904,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
               <select
                 value={selectedBlockIndex}
                 onChange={(e) => setSelectedBlockIndex(Number(e.target.value))}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono font-medium cursor-pointer"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-blue-500 font-mono font-medium cursor-pointer shadow-sm"
               >
                 {displayedBlocks.map((b) => (
                   <option key={b.blockIndex} value={b.blockIndex}>
@@ -1001,7 +919,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                   type="button"
                   disabled={selectedBlockIndex === 0}
                   onClick={() => setSelectedBlockIndex((idx) => Math.max(0, idx - 1))}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer font-medium text-[11px]"
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer font-medium text-[11px]"
                   title="Previous Range Block"
                 >
                   &larr; Prev Block
@@ -1010,7 +928,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                   type="button"
                   disabled={selectedBlockIndex === allBlocks.length - 1}
                   onClick={() => setSelectedBlockIndex((idx) => Math.min(allBlocks.length - 1, idx + 1))}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer font-medium text-[11px]"
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer font-medium text-[11px]"
                   title="Next Range Block"
                 >
                   Next Block &rarr;
@@ -1018,12 +936,12 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
               </div>
 
               {/* Active Only Filter Checkbox */}
-              <label className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 cursor-pointer ml-2 text-[11px]">
+              <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 cursor-pointer ml-2 text-[11px]">
                 <input
                   type="checkbox"
                   checked={filterActiveBlocksOnly}
                   onChange={(e) => setFilterActiveBlocksOnly(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-blue-600 focus:ring-blue-500"
                 />
                 <span>Active Blocks Only</span>
               </label>
@@ -1041,12 +959,12 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                     handleJumpToIp(blockJumpSearch);
                   }
                 }}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500 w-36"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500 w-36 shadow-sm"
               />
               <button
                 type="button"
                 onClick={() => handleJumpToIp(blockJumpSearch)}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-medium cursor-pointer"
               >
                 Jump
               </button>
@@ -1055,16 +973,16 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
         )}
 
         {/* Heatmap Range Info */}
-        <div className="flex items-center justify-between text-xs text-slate-400 px-1 pt-1">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 pt-1">
           <span>
-            Viewing <strong className="text-slate-200">{currentBlock.cidrLabel}</strong> ({currentBlock.hostCount} Addresses)
+            Viewing <strong className="text-slate-800 dark:text-slate-200">{currentBlock.cidrLabel}</strong> ({currentBlock.hostCount} Addresses)
           </span>
           <div className="flex items-center gap-3">
             <span>
-              Active in Block: <strong className="text-emerald-400">{currentBlock.totalActive}</strong> ({currentBlock.utilization}%)
+              Active in Block: <strong className="text-emerald-600 dark:text-emerald-400">{currentBlock.totalActive}</strong> ({currentBlock.utilization}%)
             </span>
             {allBlocks.length > 1 && (
-              <span className="text-slate-500 text-[11px] font-mono">
+              <span className="text-slate-400 dark:text-slate-500 text-[11px] font-mono">
                 Block {selectedBlockIndex + 1} of {allBlocks.length}
               </span>
             )}
@@ -1072,7 +990,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
         </div>
 
         {/* Live Hover Inspector Bar */}
-        <div className="h-9 my-3 px-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs font-mono">
+        <div className="h-9 my-3 px-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-mono">
           {hoveredIp ? (
             (() => {
               const rec = ipMap.get(hoveredIp);
@@ -1085,22 +1003,22 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
               return (
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-bold text-[#171717] dark:text-white">{hoveredIp}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{hoveredIp}</span>
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-sans uppercase font-bold ${
+                      className={`text-[10px] px-2 py-0.5 rounded font-sans uppercase font-bold border ${
                         isNet || isBcast
-                          ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800'
                           : isGw
-                          ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800'
                           : rec?.status === 'allocated'
-                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
                           : rec?.status === 'reserved'
-                          ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800'
                           : rec?.status === 'dhcp'
-                          ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                          ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800'
                           : rec?.status === 'offline'
-                          ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                          : 'bg-slate-800 text-slate-400'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800'
+                          : 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                       }`}
                     >
                       {isNet ? 'Network' : isBcast ? 'Broadcast' : isGw ? 'Default Gateway' : rec?.status || 'Free / Available'}
@@ -1115,25 +1033,25 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                     )}
 
                     {rec?.hostname && (
-                      <span className="text-slate-300 font-sans truncate max-w-xs">{rec.hostname}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-sans truncate max-w-xs">{rec.hostname}</span>
                     )}
-                    {rec?.macAddress && <span className="text-slate-500">{rec.macAddress}</span>}
+                    {rec?.macAddress && <span className="text-slate-400 dark:text-slate-500">{rec.macAddress}</span>}
                   </div>
-                  <span className="text-[10px] text-blue-400 font-sans">
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-sans font-medium">
                     {rec ? 'Click to inspect / edit' : canAllocate ? 'Click to allocate this IP' : 'Available'}
                   </span>
                 </div>
               );
             })()
           ) : (
-            <span className="text-slate-500 text-[11px] font-sans">
+            <span className="text-slate-500 dark:text-slate-400 text-[11px] font-sans">
               Hover over any IP block to inspect network status, or click to allocate.
             </span>
           )}
         </div>
 
         {/* Heatmap Grid of Blocks */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(34px,1fr))] gap-1.5 p-2 bg-slate-950 rounded-xl border border-slate-800/80 max-h-80 overflow-y-auto">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(34px,1fr))] gap-1.5 p-2 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/80 max-h-80 overflow-y-auto">
           {gridIps.map((ip) => {
             const rec = ipMap.get(ip);
             const isGw = ip === subnet.gateway;
@@ -1141,7 +1059,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
             const isBcast = ip === cidrInfo?.broadcastAddress;
             const lastOctet = ip.split('.')[3];
 
-            let bgClass = 'bg-slate-800/60 hover:bg-slate-700 text-slate-500 border-slate-700/50';
+            let bgClass = 'bg-white dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/50 shadow-xs';
 
             if (isNet || isBcast || isGw) {
               bgClass = 'bg-purple-600/90 text-white font-bold hover:bg-purple-500 border-purple-400/50 shadow-sm';
@@ -1196,7 +1114,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
       {/* IP Inventory Table & Search Filter */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -1207,21 +1125,21 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                 setSearchQuery(e.target.value);
                 setTablePage(1);
               }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 transition-all font-sans"
             />
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
             {/* Classification Filter */}
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-400">Class:</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Class:</span>
               <select
                 value={classificationFilter}
                 onChange={(e) => {
                   setClassificationFilter(e.target.value);
                   setTablePage(1);
                 }}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
               >
                 <option value="all">All Classifications</option>
                 {deviceClassifications.map((dc) => {
@@ -1241,14 +1159,14 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
             {/* Status Filter */}
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-400">Status:</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Status:</span>
               <select
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value);
                   setTablePage(1);
                 }}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
               >
                 <option value="all">All Statuses ({subnetIps.length})</option>
                 <option value="allocated">Allocated ({allocatedCount})</option>
@@ -1272,7 +1190,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                   setIsProbingSubnet(false);
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-xs font-semibold border border-blue-500/30 transition-colors cursor-pointer disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-600/20 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-blue-600 dark:text-blue-400 text-xs font-semibold border border-blue-200 dark:border-blue-500/30 transition-colors cursor-pointer disabled:opacity-40"
               title="Probe ping reachability of all assigned IPs in this subnet"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isProbingSubnet ? 'animate-spin' : ''}`} />
@@ -1282,10 +1200,10 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
         </div>
 
         {/* IPs Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
+            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                 <tr>
                   <th className="py-3.5 px-4 min-w-[160px]">IP Address</th>
                   <th className="py-3.5 px-4 min-w-[110px]">Status</th>
@@ -1296,10 +1214,10 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                   <th className="py-3.5 px-4 min-w-[120px] text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {filteredTableIps.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-500">
+                    <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500">
                       No active IP allocations match your query.
                     </td>
                   </tr>
@@ -1310,13 +1228,13 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                     const theme = getClassificationTheme(matchedClassification?.color);
 
                     return (
-                      <tr key={rec.id} className="hover:bg-slate-800/40 transition-colors">
+                      <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         {/* IP */}
-                        <td className="py-3 px-4 font-mono font-semibold text-white">
+                        <td className="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-white">
                           <div className="flex items-center gap-1.5">
                             <span>{rec.ip}</span>
                             {isGw && (
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800 font-sans font-bold">
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 font-sans font-bold border">
                                 Gateway
                               </span>
                             )}
@@ -1326,14 +1244,14 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                         {/* Status */}
                         <td className="py-3 px-4">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold capitalize ${
+                            className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold capitalize border ${
                               rec.status === 'allocated'
-                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
                                 : rec.status === 'reserved'
-                                ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800'
                                 : rec.status === 'dhcp'
-                                ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                                : 'bg-rose-950 text-rose-300 border border-rose-800'
+                                ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800'
                             }`}
                           >
                             {rec.status}
@@ -1348,7 +1266,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                             </div>
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-semibold text-slate-100">{rec.hostname || '—'}</p>
+                                <p className="font-semibold text-slate-900 dark:text-slate-100">{rec.hostname || '—'}</p>
                                 {matchedClassification ? (
                                   <span
                                     className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-medium shadow-sm ${theme.badge}`}
@@ -1357,25 +1275,25 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                                     <span>{matchedClassification.name}</span>
                                   </span>
                                 ) : rec.deviceType ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono">
                                     {rec.deviceType}
                                   </span>
                                 ) : null}
                               </div>
-                              {rec.notes && <p className="text-[10px] text-slate-500 truncate max-w-xs mt-0.5">{rec.notes}</p>}
+                              {rec.notes && <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-xs mt-0.5">{rec.notes}</p>}
                             </div>
                           </div>
                         </td>
 
                         {/* MAC */}
-                        <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                           {rec.macAddress || '—'}
                         </td>
 
                         {/* Owner */}
                         <td className="py-3 px-4">
-                          <p className="text-slate-200">{rec.owner || '—'}</p>
-                          {rec.department && <p className="text-[10px] text-slate-500">{rec.department}</p>}
+                          <p className="text-slate-800 dark:text-slate-200">{rec.owner || '—'}</p>
+                          {rec.department && <p className="text-[10px] text-slate-400 dark:text-slate-500">{rec.department}</p>}
                         </td>
 
                         {/* Ping Health */}
@@ -1384,19 +1302,19 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                             <span
                               className={`w-2 h-2 rounded-full ${
                                 rec.lastPingStatus === 'online'
-                                  ? 'bg-emerald-400'
+                                  ? 'bg-emerald-500'
                                   : rec.lastPingStatus === 'unreachable' || rec.lastPingStatus === 'offline'
-                                  ? 'bg-rose-400'
-                                  : 'bg-amber-400'
+                                  ? 'bg-rose-500'
+                                  : 'bg-amber-500'
                               }`}
                             />
                             <span
                               className={`text-[11px] capitalize font-medium ${
                                 rec.lastPingStatus === 'online'
-                                  ? 'text-emerald-400'
+                                  ? 'text-emerald-600 dark:text-emerald-400'
                                   : rec.lastPingStatus === 'unreachable' || rec.lastPingStatus === 'offline'
-                                  ? 'text-rose-400'
-                                  : 'text-amber-400'
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-amber-600 dark:text-amber-400'
                               }`}
                             >
                               {rec.lastPingStatus === 'unreachable'
@@ -1407,9 +1325,9 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                               disabled={pingingId === rec.id}
                               onClick={() => handlePing(rec.id)}
                               title="Check ping reachability"
-                              className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                             >
-                              <RefreshCw className={`w-3 h-3 ${pingingId === rec.id ? 'animate-spin text-blue-400' : ''}`} />
+                              <RefreshCw className={`w-3 h-3 ${pingingId === rec.id ? 'animate-spin text-blue-500' : ''}`} />
                             </button>
                           </div>
                         </td>
@@ -1421,7 +1339,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                               <button
                                 onClick={() => handleOpenEdit(rec)}
                                 title="Edit IP details"
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -1434,7 +1352,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                                   setIpToDelete(rec);
                                 }}
                                 title="Release / Delete IP"
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1451,14 +1369,14 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
           {/* Table Pagination Bar */}
           {filteredTableIps.length > 0 && (
-            <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div className="px-5 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
                 <span>
                   Showing{' '}
-                  <strong className="text-slate-200">
+                  <strong className="text-slate-800 dark:text-slate-200">
                     {(tablePage - 1) * tablePageSize + 1} - {Math.min(tablePage * tablePageSize, filteredTableIps.length).toLocaleString()}
                   </strong>{' '}
-                  of <strong className="text-slate-200">{filteredTableIps.length.toLocaleString()}</strong> allocated IP records
+                  of <strong className="text-slate-800 dark:text-slate-200">{filteredTableIps.length.toLocaleString()}</strong> allocated IP records
                 </span>
               </div>
 
@@ -1471,7 +1389,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                       setTablePageSize(Number(e.target.value));
                       setTablePage(1);
                     }}
-                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
                   >
                     <option value={25}>25</option>
                     <option value={50}>50</option>
@@ -1487,19 +1405,19 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                       type="button"
                       disabled={tablePage === 1}
                       onClick={() => setTablePage((p) => Math.max(1, p - 1))}
-                      className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                      className="p-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                       title="Previous Page"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="px-2 text-slate-300 font-mono text-xs">
+                    <span className="px-2 text-slate-700 dark:text-slate-300 font-mono text-xs">
                       Page {tablePage} of {totalTablePages}
                     </span>
                     <button
                       type="button"
                       disabled={tablePage === totalTablePages}
                       onClick={() => setTablePage((p) => Math.min(totalTablePages, p + 1))}
-                      className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                      className="p-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
                       title="Next Page"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -1515,26 +1433,26 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
       {/* ALLOCATE / EDIT IP MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-100 my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-900 dark:text-slate-100 my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-500/20">
                   <Network className="w-4 h-4" />
                 </div>
-                <h3 className="text-lg font-bold text-[#171717] dark:text-white">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   {editingIpRecord ? `Edit IP: ${editingIpRecord.ip}` : 'Allocate IP Address'}
                 </h3>
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             {formError && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+              <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
@@ -1543,8 +1461,8 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    IP Address <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    IP Address <span className="text-rose-500 dark:text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -1553,16 +1471,16 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                     value={formData.ip}
                     onChange={(e) => setFormData({ ...formData, ip: e.target.value })}
                     placeholder="e.g. 192.168.10.25"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Allocation Status</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Allocation Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as IPStatus })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   >
                     <option value="allocated">Allocated (Active Device)</option>
                     <option value="reserved">Reserved (Static Plan)</option>
@@ -1574,37 +1492,37 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Hostname / FQDN</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Hostname / FQDN</label>
                   <input
                     type="text"
                     value={formData.hostname}
                     onChange={(e) => setFormData({ ...formData, hostname: e.target.value })}
                     placeholder="e.g. srv-app01.corp.internal"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">MAC Address</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">MAC Address</label>
                   <input
                     type="text"
                     value={formData.macAddress}
                     onChange={(e) => setFormData({ ...formData, macAddress: formatMAC(e.target.value) })}
                     placeholder="e.g. 00:1A:2B:3C:4D:5E"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 font-mono focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Device Classification <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Device Classification <span className="text-rose-500 dark:text-rose-400">*</span>
                   </label>
                   <select
                     value={formData.deviceType}
                     onChange={(e) => setFormData({ ...formData, deviceType: e.target.value as DeviceType })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   >
                     {deviceClassifications && deviceClassifications.length > 0 ? (
                       deviceClassifications.map((dc) => (
@@ -1627,34 +1545,34 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Owner / Assignee</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Owner / Assignee</label>
                   <input
                     type="text"
                     value={formData.owner}
                     onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                     placeholder="e.g. Platform Team"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Notes / Description</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Notes / Description</label>
                 <textarea
                   rows={2}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   placeholder="Additional metadata, rack number, port..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1673,25 +1591,25 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
       {/* RELEASE / DELETE IP CONFIRMATION MODAL */}
       {ipToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4 border border-rose-500/20">
+          <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 border border-rose-200 dark:border-rose-500/20">
               <Trash2 className="w-6 h-6" />
             </div>
 
-            <h3 className="text-base font-bold text-[#171717] dark:text-white">Release IP: {ipToDelete.ip}?</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Release IP: {ipToDelete.ip}?</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
               Are you sure you want to release and unassign IP{' '}
-              <strong className="text-[#171717] dark:text-white font-mono">{ipToDelete.ip}</strong>?
+              <strong className="text-slate-900 dark:text-white font-mono">{ipToDelete.ip}</strong>?
               {ipToDelete.hostname && (
                 <span>
                   {' '}
-                  Associated with host <strong className="text-slate-200">{ipToDelete.hostname}</strong>.
+                  Associated with host <strong className="text-slate-800 dark:text-slate-200">{ipToDelete.hostname}</strong>.
                 </span>
               )}
             </p>
 
             {deleteIpError && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+              <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{deleteIpError}</span>
               </div>
@@ -1701,7 +1619,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
               <button
                 type="button"
                 onClick={() => setIpToDelete(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
               >
                 Cancel
               </button>
@@ -1728,20 +1646,20 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
       {/* DELETE SUBNET CONFIRMATION MODAL */}
       {isDeleteSubnetModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4 border border-rose-500/20">
+          <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 border border-rose-200 dark:border-rose-500/20">
               <Trash2 className="w-6 h-6" />
             </div>
 
-            <h3 className="text-base font-bold text-[#171717] dark:text-white">Delete Subnet: {subnet.name}?</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Subnet: {subnet.name}?</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
               Are you sure you want to permanently delete subnet{' '}
-              <strong className="text-[#171717] dark:text-white font-mono">{subnet.cidr}</strong>? All associated IP allocations and
+              <strong className="text-slate-900 dark:text-white font-mono">{subnet.cidr}</strong>? All associated IP allocations and
               metadata will be purged.
             </p>
 
             {deleteSubnetError && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+              <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{deleteSubnetError}</span>
               </div>
@@ -1751,7 +1669,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({ subnetId, on
               <button
                 type="button"
                 onClick={() => setIsDeleteSubnetModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
               >
                 Cancel
               </button>

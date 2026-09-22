@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useIPAM } from '../context/IPAMContext';
 import { useTheme } from '../context/ThemeContext';
 import {
+  LayoutDashboard,
   Network,
   Users,
   Server,
@@ -13,7 +14,6 @@ import {
   Lock,
   Database,
   KeyRound,
-  Sparkles,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -21,15 +21,11 @@ import {
 interface NavbarProps {
   onOpenLogin: () => void;
   onOpenChangePassword?: () => void;
-  onToggleChatbot?: () => void;
-  isChatbotOpen?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenLogin,
   onOpenChangePassword,
-  onToggleChatbot,
-  isChatbotOpen,
 }) => {
   const {
     currentUser,
@@ -121,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Logo & Name (Geist Developer Platform Styling) */}
           <div
             onClick={() => {
-              setActiveTab('subnets');
+              setActiveTab('dashboard');
               setSelectedSubnetId(null);
             }}
             className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
@@ -137,6 +133,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Center Navigation Tabs */}
           <nav className="hidden lg:flex items-center gap-1 bg-[#f4f4f5] dark:bg-[#111111] p-1 rounded-xl border border-[#ebebeb] dark:border-[#262626] shadow-xs">
             <button
+              id="nav-tab-dashboard"
+              onClick={() => {
+                setActiveTab('dashboard');
+                setSelectedSubnetId(null);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                activeTab === 'dashboard'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+              <span>Dashboard</span>
+            </button>
+
+            <button
               id="nav-tab-subnets"
               onClick={() => {
                 setActiveTab('subnets');
@@ -151,9 +163,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Network className="w-3.5 h-3.5 shrink-0" />
               <span>Subnets &amp; IPs</span>
               <span
-                className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
                   activeTab === 'subnets'
-                    ? 'bg-white/20 text-current'
+                    ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
                     : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
                 }`}
               >
@@ -210,10 +222,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Layers className="w-3.5 h-3.5 shrink-0" />
                 <span>Device Types</span>
                 <span
-                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
                     activeTab === 'device_classifications'
-                      ? 'bg-white/20 text-current'
-                      : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+                      ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
+                    : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
                   }`}
                 >
                   {deviceClassifications.length}
@@ -268,23 +280,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Moon className="w-4 h-4 text-[#4d4d4d]" />
               )}
             </button>
-
-            {/* Assistant Action Button */}
-            {currentUser && onToggleChatbot && (
-              <button
-                id="btn-navbar-chatbot"
-                onClick={onToggleChatbot}
-                title="Open IPAM Assistant (Ctrl+J)"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer shadow-xs ${
-                  isChatbotOpen
-                    ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black border-transparent'
-                    : 'bg-white dark:bg-[#111111] text-[#171717] dark:text-[#ededed] border-[#ebebeb] dark:border-[#262626] hover:bg-[#f4f4f5] dark:hover:bg-[#1c1c1c]'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#0070f3]" />
-                <span className="hidden md:inline">Assistant</span>
-              </button>
-            )}
 
             {currentUser ? (
               <div className="relative" ref={userMenuRef}>
@@ -382,6 +377,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="pt-3 space-y-2">
                       {currentUser.authType === 'local' && (
                         <button
+                          id="btn-open-change-password"
                           onClick={() => {
                             setUserMenuOpen(false);
                             if (onOpenChangePassword) {
@@ -396,6 +392,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       )}
 
                       <button
+                        id="btn-sign-out"
                         onClick={() => {
                           logout();
                           setUserMenuOpen(false);
@@ -424,6 +421,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Mobile Navigation Bar */}
         <div className="lg:hidden flex items-center gap-1 overflow-x-auto py-2 border-t border-[#ebebeb] dark:border-[#262626] scrollbar-none">
+          <button
+            onClick={() => {
+              setActiveTab('dashboard');
+              setSelectedSubnetId(null);
+            }}
+            className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+              activeTab === 'dashboard'
+                ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
+                : 'text-[#666666] dark:text-[#a1a1a1]'
+            }`}
+          >
+            Dashboard
+          </button>
           <button
             onClick={() => {
               setActiveTab('subnets');

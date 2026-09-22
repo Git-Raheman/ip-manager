@@ -18,12 +18,14 @@ import { snmpEngine } from './server/snmpEngine.js';
 
 async function startServer() {
   const app = express();
+  // Unique server instance boot token (changes whenever Docker container restarts or rebuilds)
+  const SERVER_BOOT_ID = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   // Use APP_PORT (e.g. 80 in Docker) or default to 3000 for local development
   const PORT = process.env.APP_PORT ? parseInt(process.env.APP_PORT, 10) : 3000;
 
-  // Security & Body Parser Middlewares
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  // Security & Body Parser Middlewares (Supports large enterprise IP databases)
+  app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
   // Standard Security Headers
   app.use((req, res, next) => {
@@ -31,6 +33,14 @@ async function startServer() {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+
+  // Anti-cache headers for all API requests to ensure live updates without Chrome cache
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     next();
   });
 
@@ -42,6 +52,7 @@ async function startServer() {
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
+      serverBootId: SERVER_BOOT_ID,
       database: 'connected',
       databaseEngine: db.isPostgresConnected() ? 'PostgreSQL (2-Tier)' : 'Persistent Disk Storage',
       version: '3.2.0',
@@ -58,7 +69,7 @@ async function startServer() {
         ...state,
         users: sanitizeUsers(state.users),
       };
-      res.json({ success: true, data: sanitizedState });
+      res.json({ success: true, serverBootId: SERVER_BOOT_ID, data: sanitizedState });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message || 'Failed to fetch database state' });
     }
@@ -159,6 +170,7 @@ async function startServer() {
         return res.json({
           success: true,
           message: 'Local authentication successful',
+          serverBootId: SERVER_BOOT_ID,
           user: sanitizeUser(updatedUser),
         });
       }
@@ -190,6 +202,7 @@ async function startServer() {
         return res.json({
           success: true,
           message: `Active Directory bind succeeded (${user.ldapUpn || user.username})`,
+          serverBootId: SERVER_BOOT_ID,
           user: sanitizeUser(updatedUser),
         });
       }
@@ -400,8 +413,26 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Serve hashed assets with long immutable caching
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+      maxAge: '1y',
+      immutable: true,
+    }));
+    // Serve other static files, ensuring HTML is NEVER cached
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      },
+    }));
+    // Fallback SPA routing - always fresh, no-store
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

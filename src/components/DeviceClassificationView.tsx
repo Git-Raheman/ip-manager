@@ -54,6 +54,13 @@ import { useIPAM } from '../context/IPAMContext';
 import { DeviceClassification, IPRecord, IPStatus, DeviceType, SnmpMonitoringConfig } from '../types';
 import { INITIAL_SNMP_CONFIG as DEFAULT_SNMP_CONFIG } from '../data/initialData';
 import { isValidIPv4, formatMAC, isValidMAC, isIpInSubnet, parseCIDR } from '../utils/ipUtils';
+import {
+  AVAILABLE_ICONS,
+  ICON_CATEGORIES,
+  IconCategory,
+  renderDeviceIcon as renderUnifiedDeviceIcon,
+  getDeviceIconComponent,
+} from '../utils/deviceIcons';
 
 function formatInterval(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -74,34 +81,9 @@ const CATEGORIES = [
   'Custom Appliance',
 ];
 
-const AVAILABLE_ICONS = [
-  { id: 'server', label: 'Server', icon: Server },
-  { id: 'router', label: 'Router', icon: Router },
-  { id: 'network', label: 'Switch / Switch Fabric', icon: Network },
-  { id: 'shield', label: 'Firewall / Security', icon: Shield },
-  { id: 'cpu', label: 'Compute / VM', icon: Cpu },
-  { id: 'laptop', label: 'Workstation / Laptop', icon: Laptop },
-  { id: 'printer', label: 'Printer / Multifunction', icon: Printer },
-  { id: 'hard-drive', label: 'Storage / SAN', icon: HardDrive },
-  { id: 'wifi', label: 'Wireless / AP / IoT', icon: Wifi },
-  { id: 'database', label: 'Database Node', icon: Database },
-  { id: 'terminal', label: 'Console / Terminal', icon: Terminal },
-  { id: 'smartphone', label: 'Mobile Device', icon: Smartphone },
-  { id: 'tablet', label: 'Tablet / Kiosk', icon: Tablet },
-  { id: 'radio', label: 'Radio / Telemetry', icon: Radio },
-  { id: 'box', label: 'Generic Appliance', icon: Box },
-];
+import { AVAILABLE_COLORS, getColorTheme, ClassificationColorTheme } from '../utils/deviceColors';
 
-const AVAILABLE_COLORS = [
-  { id: 'blue', label: 'Blue', border: 'border-blue-500/40', bg: 'bg-blue-500/10', text: 'text-blue-400', badge: 'bg-blue-950 text-blue-300 border-blue-800' },
-  { id: 'purple', label: 'Purple', border: 'border-purple-500/40', bg: 'bg-purple-500/10', text: 'text-purple-400', badge: 'bg-purple-950 text-purple-300 border-purple-800' },
-  { id: 'cyan', label: 'Cyan', border: 'border-cyan-500/40', bg: 'bg-cyan-500/10', text: 'text-cyan-400', badge: 'bg-cyan-950 text-cyan-300 border-cyan-800' },
-  { id: 'rose', label: 'Rose', border: 'border-rose-500/40', bg: 'bg-rose-500/10', text: 'text-rose-400', badge: 'bg-rose-950 text-rose-300 border-rose-800' },
-  { id: 'indigo', label: 'Indigo', border: 'border-indigo-500/40', bg: 'bg-indigo-500/10', text: 'text-indigo-400', badge: 'bg-indigo-950 text-indigo-300 border-indigo-800' },
-  { id: 'emerald', label: 'Emerald', border: 'border-emerald-500/40', bg: 'bg-emerald-500/10', text: 'text-emerald-400', badge: 'bg-emerald-950 text-emerald-300 border-emerald-800' },
-  { id: 'amber', label: 'Amber', border: 'border-amber-500/40', bg: 'bg-amber-500/10', text: 'text-amber-400', badge: 'bg-amber-950 text-amber-300 border-amber-800' },
-  { id: 'slate', label: 'Slate', border: 'border-slate-500/40', bg: 'bg-slate-500/10', text: 'text-slate-300', badge: 'bg-slate-800 text-slate-300 border-slate-700' },
-];
+export { AVAILABLE_ICONS, AVAILABLE_COLORS, getColorTheme };
 
 export function matchClassification(
   deviceType: string | undefined,
@@ -179,6 +161,25 @@ export const DeviceClassificationView: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingClassification, setEditingClassification] = useState<DeviceClassification | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [iconSearchQuery, setIconSearchQuery] = useState('');
+  const [selectedIconCategory, setSelectedIconCategory] = useState<IconCategory>('All');
+
+  const filteredModalIcons = useMemo(() => {
+    let list = AVAILABLE_ICONS;
+    if (selectedIconCategory !== 'All') {
+      list = list.filter((i) => i.category === selectedIconCategory);
+    }
+    if (iconSearchQuery.trim()) {
+      const q = iconSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (i) =>
+          i.id.toLowerCase().includes(q) ||
+          i.label.toLowerCase().includes(q) ||
+          i.keywords.some((k) => k.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [iconSearchQuery, selectedIconCategory]);
 
   // Modal states for Assigned IPs inspection & Quick Assignment
   const [assignedIpsModalClassification, setAssignedIpsModalClassification] = useState<DeviceClassification | null>(null);
@@ -308,6 +309,8 @@ export const DeviceClassificationView: React.FC = () => {
       snmpEnabled: true,
     });
     setFormError(null);
+    setIconSearchQuery('');
+    setSelectedIconCategory('All');
     setModalOpen(true);
   };
 
@@ -325,6 +328,8 @@ export const DeviceClassificationView: React.FC = () => {
       snmpEnabled: dc.snmpEnabled ?? true,
     });
     setFormError(null);
+    setIconSearchQuery('');
+    setSelectedIconCategory('All');
     setModalOpen(true);
   };
 
@@ -414,16 +419,7 @@ export const DeviceClassificationView: React.FC = () => {
   };
 
   const renderIcon = (iconName: string, className = 'w-5 h-5') => {
-    const found = AVAILABLE_ICONS.find((i) => i.id === iconName);
-    if (found) {
-      const IconComp = found.icon;
-      return <IconComp className={className} />;
-    }
-    return <Box className={className} />;
-  };
-
-  const getColorTheme = (colorName: string) => {
-    return AVAILABLE_COLORS.find((c) => c.id === colorName) || AVAILABLE_COLORS[0];
+    return renderUnifiedDeviceIcon(iconName, className);
   };
 
   const targetDeleteClassification = deviceClassifications.find((dc) => dc.id === deleteConfirmId);
@@ -720,15 +716,15 @@ export const DeviceClassificationView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER BANNER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
         <div className="space-y-1.5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/20">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:bg-blue-600/20 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">Device Classifications &amp; Hardware Typology</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Device Classifications &amp; Hardware Typology</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Define network equipment models, server archetypes, perimeter firewalls, and custom device categories mapped to IP records.
               </p>
             </div>
@@ -746,8 +742,8 @@ export const DeviceClassificationView: React.FC = () => {
               <span>Create Device Classification</span>
             </button>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-slate-400">
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
+              <Lock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
               <span>Read-Only (Requires Admin Privileges)</span>
             </div>
           )}
@@ -756,39 +752,39 @@ export const DeviceClassificationView: React.FC = () => {
 
       {/* METRICS OVERVIEW CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1">
               <span>Total Classifications</span>
-              <Layers className="w-4 h-4 text-blue-400" />
+              <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="text-2xl font-bold text-[#171717] dark:text-white tracking-tight">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {deviceClassifications.length}
             </div>
           </div>
           <p className="text-[11px] text-slate-500 mt-2">Configured hardware profiles</p>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1">
               <span>Assigned IP Endpoints</span>
-              <Network className="w-4 h-4 text-emerald-400" />
+              <Network className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div className="text-2xl font-bold text-[#171717] dark:text-white tracking-tight">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {Object.values(ipCountsByCode).reduce((acc: number, v: number) => acc + v, 0).toLocaleString()}
             </div>
           </div>
           <p className="text-[11px] text-slate-500 mt-2">Active classified IP records</p>
         </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1">
               <span>Functional Categories</span>
-              <Tag className="w-4 h-4 text-purple-400" />
+              <Tag className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             </div>
-            <div className="text-2xl font-bold text-[#171717] dark:text-white tracking-tight">
+            <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {new Set(deviceClassifications.map((d) => d.category)).size}
             </div>
           </div>
@@ -796,23 +792,23 @@ export const DeviceClassificationView: React.FC = () => {
         </div>
 
         {/* 4TH CARD: INTERACTIVE SNMP MONITORING & TELEMETRY CONTROLS */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700/80 transition-all flex flex-col justify-between relative overflow-hidden group">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-300 dark:hover:border-slate-700/80 transition-all flex flex-col justify-between relative overflow-hidden group">
           {/* Card Top: Title, Quick Settings & Master ON/OFF Switch */}
-          <div className="flex items-center justify-between text-slate-400 text-xs mb-1.5">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1.5">
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-200">SNMP Monitored</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">SNMP Monitored</span>
               {canManage ? (
                 <button
                   type="button"
                   onClick={openSnmpSettingsModal}
-                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                   title="Configure custom polling time & SNMP options"
                 >
                   <Settings className="w-3.5 h-3.5" />
                 </button>
               ) : (
                 <span title="Settings locked: Admin rights required">
-                  <Lock className="w-3 h-3 text-slate-500" />
+                  <Lock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                 </span>
               )}
             </div>
@@ -822,8 +818,8 @@ export const DeviceClassificationView: React.FC = () => {
               <span
                 className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
                   snmpConfig.enabled
-                    ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-400 dark:border-emerald-800/80'
+                    : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                 }`}
               >
                 {snmpConfig.enabled ? 'ON' : 'OFF'}
@@ -838,7 +834,7 @@ export const DeviceClassificationView: React.FC = () => {
                 className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   !canManage ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                 } ${
-                  snmpConfig.enabled ? 'bg-emerald-500' : 'bg-slate-700'
+                  snmpConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
               >
                 <span
@@ -856,36 +852,36 @@ export const DeviceClassificationView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${
-                    snmpConfig.enabled ? (isPolling ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse') : 'bg-slate-600'
+                    snmpConfig.enabled ? (isPolling ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse') : 'bg-slate-400 dark:bg-slate-600'
                   }`}
                 />
-                <span className="text-xl font-bold text-[#171717] dark:text-white tracking-tight">
+                <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                   {monitoredProfilesCount}{' '}
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
                     / {deviceClassifications.length} Profiles
                   </span>
                 </span>
               </div>
-              <span className="text-[11px] font-mono text-emerald-400 font-semibold">
+              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
                 {monitoredIpCount.toLocaleString()} Endpoints
               </span>
             </div>
 
             {/* Live Polling Info & Countdown Bar */}
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-2 flex items-center justify-between text-[11px]">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <Clock className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Interval: <strong className="text-white">{formatInterval(snmpConfig.intervalSeconds)}</strong></span>
+            <div className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-lg p-2 flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                <Clock className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
+                <span>Interval: <strong className="text-slate-900 dark:text-white">{formatInterval(snmpConfig.intervalSeconds)}</strong></span>
               </div>
               <div className="flex items-center gap-2 font-mono">
                 {snmpConfig.enabled ? (
                   isPolling ? (
-                    <span className="text-amber-400 font-bold flex items-center gap-1">
+                    <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
                       <RefreshCw className="w-3 h-3 animate-spin" /> Probing...
                     </span>
                   ) : (
-                    <span className="text-slate-400">
-                      Next: <strong className="text-blue-400">{countdown}s</strong>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Next: <strong className="text-blue-600 dark:text-blue-400">{countdown}s</strong>
                     </span>
                   )
                 ) : (
@@ -896,12 +892,12 @@ export const DeviceClassificationView: React.FC = () => {
           </div>
 
           {/* Card Bottom: Quick Actions (Instant Poll & Config) */}
-          <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
             <button
               type="button"
               onClick={handleInstantPoll}
               disabled={!canManage || isPolling}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[11px] font-medium border border-blue-500/30 transition-colors disabled:opacity-40 ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1 px-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/80 hover:bg-blue-100 dark:hover:bg-blue-900/80 text-blue-700 dark:text-blue-200 text-[11px] font-semibold border border-blue-200 dark:border-blue-800 transition-colors disabled:opacity-40 ${
                 !canManage ? 'cursor-not-allowed' : 'cursor-pointer'
               }`}
               title={canManage ? "Execute an immediate telemetry probe cycle across all monitored devices" : "Requires Administrator Rights"}
@@ -914,7 +910,7 @@ export const DeviceClassificationView: React.FC = () => {
               <button
                 type="button"
                 onClick={openSnmpSettingsModal}
-                className="py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                className="py-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
                 title="Set custom time interval & SNMP options"
               >
                 <Sliders className="w-3 h-3" />
@@ -931,7 +927,7 @@ export const DeviceClassificationView: React.FC = () => {
       </div>
 
       {/* SEARCH AND FILTER CONTROLS */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -939,20 +935,20 @@ export const DeviceClassificationView: React.FC = () => {
             placeholder="Search classification name, code, vendor, category..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           {/* Category Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Category:</span>
           </div>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
           >
             <option value="all">All Categories ({deviceClassifications.length})</option>
             {CATEGORIES.map((cat) => {
@@ -966,14 +962,14 @@ export const DeviceClassificationView: React.FC = () => {
           </select>
 
           {/* Sort By */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 shrink-0 ml-2">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 shrink-0 ml-2">
             <ArrowUpDown className="w-3.5 h-3.5" />
             <span>Sort:</span>
           </div>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
           >
             <option value="name">Name (A-Z)</option>
             <option value="ips">Assigned IPs (High to Low)</option>
@@ -984,12 +980,12 @@ export const DeviceClassificationView: React.FC = () => {
 
       {/* CLASSIFICATION CARDS GRID */}
       {filteredClassifications.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl p-8">
-          <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
+        <div className="text-center py-16 bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto mb-3">
             <Layers className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold text-white">No device classifications found</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">No device classifications found</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
             {searchTerm || selectedCategory !== 'all'
               ? 'No classifications match the selected filters. Try clearing your search parameters.'
               : 'Get started by creating your first device classification.'}
@@ -1013,7 +1009,7 @@ export const DeviceClassificationView: React.FC = () => {
               <div
                 key={dc.id}
                 id={`card-classification-${dc.code}`}
-                className="group relative bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-sm transition-all flex flex-col justify-between"
+                className="group relative bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-5 shadow-sm transition-all flex flex-col justify-between"
               >
                 <div>
                   {/* Top Bar: Icon, Name, Category & Actions */}
@@ -1024,12 +1020,12 @@ export const DeviceClassificationView: React.FC = () => {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {dc.name}
                           </h3>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <code className="text-[11px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800 font-mono">
+                          <code className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-mono">
                             {dc.code}
                           </code>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full border ${theme.badge}`}>
@@ -1044,21 +1040,21 @@ export const DeviceClassificationView: React.FC = () => {
                       <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleDuplicate(dc)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           title="Duplicate Classification"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => openEditModal(dc)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           title="Edit Classification"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleteConfirmId(dc.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           title="Delete Classification"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1069,47 +1065,47 @@ export const DeviceClassificationView: React.FC = () => {
 
                   {/* Description */}
                   {dc.description && (
-                    <p className="text-xs text-slate-400 mt-3.5 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-3.5 line-clamp-2 leading-relaxed">
                       {dc.description}
                     </p>
                   )}
 
                   {/* Spec metadata pills */}
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2 text-xs">
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2 text-xs">
                     {dc.vendor && (
-                      <div className="flex items-center justify-between text-slate-400">
+                      <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                         <span className="flex items-center gap-1.5 text-[11px]">
-                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                          <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                           <span>Vendor / OEM:</span>
                         </span>
-                        <span className="text-slate-200 font-medium text-[11px] truncate max-w-[180px]">
+                        <span className="text-slate-800 dark:text-slate-200 font-medium text-[11px] truncate max-w-[180px]">
                           {dc.vendor}
                         </span>
                       </div>
                     )}
 
                     {dc.defaultPorts && (
-                      <div className="flex items-center justify-between text-slate-400">
+                      <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                         <span className="flex items-center gap-1.5 text-[11px]">
-                          <Terminal className="w-3.5 h-3.5 text-slate-500" />
+                          <Terminal className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                           <span>Default Ports:</span>
                         </span>
-                        <span className="text-slate-300 font-mono text-[11px] truncate max-w-[180px]">
+                        <span className="text-slate-700 dark:text-slate-300 font-mono text-[11px] truncate max-w-[180px]">
                           {dc.defaultPorts}
                         </span>
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between text-slate-400">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1.5 text-[11px]">
-                        <Activity className="w-3.5 h-3.5 text-slate-500" />
+                        <Activity className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         <span>SNMP Polling:</span>
                       </span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
                           dc.snmpEnabled
-                            ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/50'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800/50'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                         }`}
                       >
                         {dc.snmpEnabled ? 'Active Telemetry' : 'Disabled'}
@@ -1119,7 +1115,7 @@ export const DeviceClassificationView: React.FC = () => {
                 </div>
 
                 {/* Card Footer: IP Allocation count, Manage IPs & Quick Assign */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2.5">
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <button
                       type="button"
@@ -1127,8 +1123,8 @@ export const DeviceClassificationView: React.FC = () => {
                       className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer text-left"
                       title="Click to view and manage assigned IP addresses"
                     >
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs text-slate-200 font-semibold hover:text-blue-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                      <span className="text-xs text-slate-800 dark:text-slate-200 font-semibold hover:text-blue-600 dark:hover:text-blue-400">
                         {assignedCount} {assignedCount === 1 ? 'Assigned IP' : 'Assigned IPs'}
                       </span>
                     </button>
@@ -1137,7 +1133,7 @@ export const DeviceClassificationView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => openQuickAssignModal(dc)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 text-[11px] font-semibold border border-blue-500/30 transition-colors cursor-pointer"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/80 hover:bg-blue-100 dark:hover:bg-blue-900/80 text-blue-700 dark:text-blue-200 hover:text-blue-800 dark:hover:text-white text-[11px] font-semibold border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
                         title="Assign an existing or new IP to this classification"
                       >
                         <Plus className="w-3 h-3" />
@@ -1145,17 +1141,17 @@ export const DeviceClassificationView: React.FC = () => {
                       </button>
                     ) : (
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
-                        <Lock className="w-2.5 h-2.5 text-slate-600" />
+                        <Lock className="w-2.5 h-2.5 text-slate-400 dark:text-slate-600" />
                         <span>Read Only</span>
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
                     <button
                       type="button"
                       onClick={() => setAssignedIpsModalClassification(dc)}
-                      className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer font-medium"
                     >
                       <FolderOpen className="w-3 h-3" />
                       <span>Manage Assigned IPs</span>
@@ -1170,7 +1166,7 @@ export const DeviceClassificationView: React.FC = () => {
                             setActiveTab('subnets');
                           }
                         }}
-                        className="text-slate-400 hover:text-slate-200 hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>Subnet View</span>
                         <ChevronRight className="w-3 h-3" />
@@ -1187,9 +1183,9 @@ export const DeviceClassificationView: React.FC = () => {
       {/* ASSIGNED IPS INSPECTION & MANAGEMENT MODAL */}
       {assignedIpsModalClassification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
-          <div className="relative bg-slate-900 border border-slate-800 rounded-2xl max-w-6xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-100 overflow-hidden">
+          <div className="relative bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-6xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-900 dark:text-slate-100 overflow-hidden">
             {/* Header */}
-            <div className="shrink-0 px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/95">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#121212]">
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-xl ${getColorTheme(assignedIpsModalClassification.color).bg} ${
@@ -1200,14 +1196,14 @@ export const DeviceClassificationView: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-bold text-white">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                       Assigned IP Endpoints: {assignedIpsModalClassification.name}
                     </h3>
-                    <code className="text-xs px-1.5 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800 font-mono">
+                    <code className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-mono">
                       {assignedIpsModalClassification.code}
                     </code>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Viewing all IP records classified under {assignedIpsModalClassification.name} ({assignedIpsList.length} endpoints matching)
                   </p>
                 </div>
@@ -1235,7 +1231,7 @@ export const DeviceClassificationView: React.FC = () => {
                       setIsProbingCategory(false);
                     }
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-semibold border border-emerald-500/30 transition-colors cursor-pointer disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-500/30 transition-colors cursor-pointer disabled:opacity-40"
                   title="Probe ping reachability for all IPs in this category"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isProbingCategory ? 'animate-spin' : ''}`} />
@@ -1251,7 +1247,7 @@ export const DeviceClassificationView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setAssignedIpsModalClassification(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1259,7 +1255,7 @@ export const DeviceClassificationView: React.FC = () => {
             </div>
 
             {/* Filter Bar */}
-            <div className="shrink-0 p-4 border-b border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="shrink-0 p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="relative w-full sm:w-72">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -1267,16 +1263,16 @@ export const DeviceClassificationView: React.FC = () => {
                   placeholder="Filter IPs, hostnames, MACs, subnets..."
                   value={assignedIpSearch}
                   onChange={(e) => setAssignedIpSearch(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-white dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <span className="text-xs text-slate-400">Subnet:</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Subnet:</span>
                 <select
                   value={assignedIpSubnetFilter}
                   onChange={(e) => setAssignedIpSubnetFilter(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+                  className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500"
                 >
                   <option value="all">All Subnets</option>
                   {subnets.map((s) => (
@@ -1292,11 +1288,11 @@ export const DeviceClassificationView: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-4">
               {assignedIpsList.length === 0 ? (
                 <div className="text-center py-16 px-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto mb-3">
                     <Network className="w-6 h-6" />
                   </div>
-                  <h4 className="text-sm font-semibold text-white">No IP records assigned to this classification</h4>
-                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white">No IP records assigned to this classification</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
                     {assignedIpSearch || assignedIpSubnetFilter !== 'all'
                       ? 'No assigned IPs match your filter criteria.'
                       : `No endpoints currently have the classification code '${assignedIpsModalClassification.code}'. You can assign an existing IP or allocate a new one below.`}
@@ -1311,9 +1307,9 @@ export const DeviceClassificationView: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="border border-slate-800 rounded-xl overflow-x-auto shadow-sm">
-                  <table className="w-full text-left text-xs text-slate-300 min-w-[980px]">
-                    <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-semibold sticky top-0 z-10">
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto shadow-sm bg-white dark:bg-[#0c0c0c]">
+                  <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 min-w-[980px]">
+                    <thead className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold sticky top-0 z-10">
                       <tr>
                         <th className="py-3 px-4 min-w-[140px]">IP Address</th>
                         <th className="py-3 px-4 min-w-[160px]">Subnet Range</th>
@@ -1324,18 +1320,18 @@ export const DeviceClassificationView: React.FC = () => {
                         <th className="py-3 px-4 min-w-[170px] text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                       {assignedIpsList.map((rec) => {
                         const targetSubnet = subnets.find((s) => s.id === rec.subnetId);
 
                         return (
-                          <tr key={rec.id} className="hover:bg-slate-800/40 transition-colors">
+                          <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                             {/* IP */}
-                            <td className="py-3 px-4 font-mono font-semibold text-white">
+                            <td className="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-white">
                               <div className="flex items-center gap-1.5">
                                 <span>{rec.ip}</span>
                                 {rec.ip === targetSubnet?.gateway && (
-                                  <span className="text-[10px] px-1 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800 font-sans">
+                                  <span className="text-[10px] px-1 py-0.2 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 font-sans font-medium">
                                     GW
                                   </span>
                                 )}
@@ -1352,21 +1348,21 @@ export const DeviceClassificationView: React.FC = () => {
                                     setSelectedSubnetId(targetSubnet.id);
                                     setActiveTab('subnets');
                                   }}
-                                  className="text-left text-blue-400 hover:text-blue-300 hover:underline flex flex-col cursor-pointer"
+                                  className="text-left text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex flex-col cursor-pointer"
                                   title="Jump to Subnet View"
                                 >
-                                  <span className="font-medium text-slate-200">{targetSubnet.name}</span>
-                                  <span className="text-[10px] font-mono text-blue-400">{targetSubnet.cidr}</span>
+                                  <span className="font-medium text-slate-800 dark:text-slate-200">{targetSubnet.name}</span>
+                                  <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400">{targetSubnet.cidr}</span>
                                 </button>
                               ) : (
-                                <span className="text-slate-500">—</span>
+                                <span className="text-slate-400 dark:text-slate-500">—</span>
                               )}
                             </td>
 
                             {/* Hostname & MAC */}
                             <td className="py-3 px-4">
-                              <p className="font-medium text-slate-100">{rec.hostname || '—'}</p>
-                              <p className="font-mono text-[10px] text-slate-500">{rec.macAddress || 'No MAC'}</p>
+                              <p className="font-medium text-slate-900 dark:text-slate-100">{rec.hostname || '—'}</p>
+                              <p className="font-mono text-[10px] text-slate-400 dark:text-slate-500">{rec.macAddress || 'No MAC'}</p>
                             </td>
 
                             {/* Status */}
@@ -1374,12 +1370,12 @@ export const DeviceClassificationView: React.FC = () => {
                               <span
                                 className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${
                                   rec.status === 'allocated'
-                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
                                     : rec.status === 'reserved'
-                                    ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800'
                                     : rec.status === 'dhcp'
-                                    ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                                    : 'bg-rose-950 text-rose-300 border border-rose-800'
+                                    ? 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800'
                                 }`}
                               >
                                 {rec.status}
@@ -1392,19 +1388,19 @@ export const DeviceClassificationView: React.FC = () => {
                                 <span
                                   className={`w-2 h-2 rounded-full ${
                                     rec.lastPingStatus === 'online'
-                                      ? 'bg-emerald-400'
+                                      ? 'bg-emerald-500 dark:bg-emerald-400'
                                       : rec.lastPingStatus === 'unreachable' || rec.lastPingStatus === 'offline'
-                                      ? 'bg-rose-400'
-                                      : 'bg-amber-400'
+                                      ? 'bg-rose-500 dark:bg-rose-400'
+                                      : 'bg-amber-500 dark:bg-amber-400'
                                   }`}
                                 />
                                 <span
                                   className={`text-[11px] capitalize font-medium ${
                                     rec.lastPingStatus === 'online'
-                                      ? 'text-emerald-400'
+                                      ? 'text-emerald-600 dark:text-emerald-400'
                                       : rec.lastPingStatus === 'unreachable' || rec.lastPingStatus === 'offline'
-                                      ? 'text-rose-400'
-                                      : 'text-amber-400'
+                                      ? 'text-rose-600 dark:text-rose-400'
+                                      : 'text-amber-600 dark:text-amber-400'
                                   }`}
                                 >
                                   {rec.lastPingStatus === 'unreachable'
@@ -1420,16 +1416,16 @@ export const DeviceClassificationView: React.FC = () => {
                                     setPingingIpId(null);
                                   }}
                                   title="Probe ping reachability"
-                                  className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
                                 >
-                                  <RefreshCw className={`w-3 h-3 ${pingingIpId === rec.id ? 'animate-spin text-blue-400' : ''}`} />
+                                  <RefreshCw className={`w-3 h-3 ${pingingIpId === rec.id ? 'animate-spin text-blue-500 dark:text-blue-400' : ''}`} />
                                 </button>
                               </div>
                             </td>
 
                             {/* Owner */}
                             <td className="py-3 px-4">
-                              <p className="text-slate-200">{rec.owner || '—'}</p>
+                              <p className="text-slate-800 dark:text-slate-200">{rec.owner || '—'}</p>
                               {rec.department && <p className="text-[10px] text-slate-500">{rec.department}</p>}
                             </td>
 
@@ -1440,7 +1436,7 @@ export const DeviceClassificationView: React.FC = () => {
                                 <select
                                   value={rec.deviceType}
                                   onChange={(e) => handleReassignIp(rec, e.target.value)}
-                                  className="bg-slate-950 border border-slate-800 text-[11px] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
                                   title="Reassign to another classification"
                                 >
                                   {deviceClassifications.map((d) => (
@@ -1456,7 +1452,7 @@ export const DeviceClassificationView: React.FC = () => {
                                   type="button"
                                   onClick={() => handleUnassignIp(rec)}
                                   title="Unassign classification from this IP"
-                                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 dark:bg-slate-800 dark:hover:bg-rose-950/60 dark:text-slate-400 dark:hover:text-rose-300 dark:border-slate-700 dark:hover:border-rose-800 transition-colors cursor-pointer"
                                 >
                                   <Unlink className="w-3.5 h-3.5" />
                                 </button>
@@ -1472,14 +1468,14 @@ export const DeviceClassificationView: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-900">
-              <span className="text-xs text-slate-400">
-                Total classified endpoints: <strong className="text-white">{assignedIpsList.length}</strong>
+            <div className="shrink-0 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Total classified endpoints: <strong className="text-slate-900 dark:text-white">{assignedIpsList.length}</strong>
               </span>
               <button
                 type="button"
                 onClick={() => setAssignedIpsModalClassification(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -1491,9 +1487,9 @@ export const DeviceClassificationView: React.FC = () => {
       {/* QUICK ASSIGN / ALLOCATE IP MODAL */}
       {quickAssignModalClassification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col my-8">
+          <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col my-8 text-slate-900 dark:text-slate-100">
             {/* Header */}
-            <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/95">
+            <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#121212]">
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-xl ${getColorTheme(quickAssignModalClassification.color).bg} ${
@@ -1503,24 +1499,24 @@ export const DeviceClassificationView: React.FC = () => {
                   {renderIcon(quickAssignModalClassification.icon, 'w-5 h-5')}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     Assign IP to: {quickAssignModalClassification.name}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Target classification code: <code className="font-mono text-blue-400">{quickAssignModalClassification.code}</code>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Target classification code: <code className="font-mono text-blue-600 dark:text-blue-400 font-semibold">{quickAssignModalClassification.code}</code>
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setQuickAssignModalClassification(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Mode Tabs */}
-            <div className="flex border-b border-slate-800 bg-slate-950/60 p-1.5 gap-1.5">
+            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-1.5 gap-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -1530,7 +1526,7 @@ export const DeviceClassificationView: React.FC = () => {
                 className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   assignMode === 'existing'
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                 }`}
               >
                 <Link className="w-3.5 h-3.5" />
@@ -1548,7 +1544,7 @@ export const DeviceClassificationView: React.FC = () => {
                 className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   assignMode === 'new'
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                 }`}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -1559,7 +1555,7 @@ export const DeviceClassificationView: React.FC = () => {
             {/* Body */}
             <div className="p-6 space-y-4">
               {quickAssignError && (
-                <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{quickAssignError}</span>
                 </div>
@@ -1567,8 +1563,8 @@ export const DeviceClassificationView: React.FC = () => {
 
               {/* Subnet Selector (Used in both modes) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Target Subnet <span className="text-rose-400">*</span>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Target Subnet <span className="text-rose-500 dark:text-rose-400">*</span>
                 </label>
                 <select
                   value={selectedSubnetForAssign}
@@ -1579,7 +1575,7 @@ export const DeviceClassificationView: React.FC = () => {
                       suggestNextFreeIp(e.target.value);
                     }
                   }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                 >
                   {subnets.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1594,10 +1590,10 @@ export const DeviceClassificationView: React.FC = () => {
                 <form onSubmit={handleAssignExistingIp} className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Select IP Record to Assign <span className="text-rose-400">*</span>
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Select IP Record to Assign <span className="text-rose-500 dark:text-rose-400">*</span>
                       </label>
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
                         {availableIpsInSubnet.length} allocated in subnet
                       </span>
                     </div>
@@ -1609,11 +1605,11 @@ export const DeviceClassificationView: React.FC = () => {
                         placeholder="Search IP, hostname, owner in this subnet..."
                         value={existingIpFilterSearch}
                         onChange={(e) => setExistingIpFilterSearch(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
 
-                    <div className="max-h-52 overflow-y-auto border border-slate-800 rounded-xl divide-y divide-slate-800/60 bg-slate-950">
+                    <div className="max-h-52 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-800/60 bg-slate-50 dark:bg-slate-950">
                       {availableIpsInSubnet.length === 0 ? (
                         <div className="p-4 text-center text-xs text-slate-500">
                           No active IP records found in this subnet. Use &quot;Allocate New IP&quot; to create one.
@@ -1631,24 +1627,24 @@ export const DeviceClassificationView: React.FC = () => {
                               onClick={() => setSelectedExistingIpId(ipRec.id)}
                               className={`w-full p-3 text-left transition-colors flex items-center justify-between cursor-pointer ${
                                 isSelected
-                                  ? 'bg-blue-600/20 border-l-4 border-blue-500'
-                                  : 'hover:bg-slate-900'
+                                  ? 'bg-blue-50 dark:bg-blue-600/20 border-l-4 border-blue-500'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-900'
                               }`}
                             >
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-[#171717] dark:text-white text-xs">{ipRec.ip}</span>
+                                  <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">{ipRec.ip}</span>
                                   {ipRec.hostname && (
-                                    <span className="text-slate-300 text-xs font-medium">({ipRec.hostname})</span>
+                                    <span className="text-slate-700 dark:text-slate-300 text-xs font-medium">({ipRec.hostname})</span>
                                   )}
                                   {isAlreadyThisClass && (
-                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
                                       Current
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-slate-400 mt-0.5">
-                                  Type: <span className="font-mono text-slate-300">{ipRec.deviceType || 'other'}</span> • Status: <span className="capitalize">{ipRec.status}</span> • Owner: {ipRec.owner || '—'}
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                  Type: <span className="font-mono text-slate-700 dark:text-slate-300">{ipRec.deviceType || 'other'}</span> • Status: <span className="capitalize">{ipRec.status}</span> • Owner: {ipRec.owner || '—'}
                                 </div>
                               </div>
 
@@ -1657,7 +1653,7 @@ export const DeviceClassificationView: React.FC = () => {
                                   className={`w-5 h-5 rounded-full border flex items-center justify-center ${
                                     isSelected
                                       ? 'border-blue-500 bg-blue-600 text-white'
-                                      : 'border-slate-700 bg-slate-900 text-transparent'
+                                      : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-transparent'
                                   }`}
                                 >
                                   <Check className="w-3 h-3" />
@@ -1671,11 +1667,11 @@ export const DeviceClassificationView: React.FC = () => {
                   </div>
 
                   {/* Submit button */}
-                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
                     <button
                       type="button"
                       onClick={() => setQuickAssignModalClassification(null)}
-                      className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                      className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1695,13 +1691,13 @@ export const DeviceClassificationView: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-300">
-                          IP Address <span className="text-rose-400">*</span>
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          IP Address <span className="text-rose-500 dark:text-rose-400">*</span>
                         </label>
                         <button
                           type="button"
                           onClick={() => suggestNextFreeIp(selectedSubnetForAssign)}
-                          className="text-[10px] text-blue-400 hover:underline"
+                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
                         >
                           Auto-Pick Next Free
                         </button>
@@ -1712,18 +1708,18 @@ export const DeviceClassificationView: React.FC = () => {
                         placeholder="e.g. 192.168.10.50"
                         value={newIpForm.ip}
                         onChange={(e) => setNewIpForm({ ...newIpForm, ip: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Allocation Status
                       </label>
                       <select
                         value={newIpForm.status}
                         onChange={(e) => setNewIpForm({ ...newIpForm, status: e.target.value as IPStatus })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                       >
                         <option value="allocated">Allocated (Active Device)</option>
                         <option value="reserved">Reserved (Static Plan)</option>
@@ -1735,7 +1731,7 @@ export const DeviceClassificationView: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Hostname / FQDN
                       </label>
                       <input
@@ -1743,12 +1739,12 @@ export const DeviceClassificationView: React.FC = () => {
                         placeholder="e.g. srv-core01.corp.internal"
                         value={newIpForm.hostname}
                         onChange={(e) => setNewIpForm({ ...newIpForm, hostname: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         MAC Address
                       </label>
                       <input
@@ -1756,14 +1752,14 @@ export const DeviceClassificationView: React.FC = () => {
                         placeholder="00:1A:2B:3C:4D:5E"
                         value={newIpForm.macAddress}
                         onChange={(e) => setNewIpForm({ ...newIpForm, macAddress: formatMAC(e.target.value) })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Owner / System Custodian
                       </label>
                       <input
@@ -1771,12 +1767,12 @@ export const DeviceClassificationView: React.FC = () => {
                         placeholder="e.g. Infrastructure Operations"
                         value={newIpForm.owner}
                         onChange={(e) => setNewIpForm({ ...newIpForm, owner: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Department / Unit
                       </label>
                       <input
@@ -1784,13 +1780,13 @@ export const DeviceClassificationView: React.FC = () => {
                         placeholder="e.g. Core Engineering"
                         value={newIpForm.department}
                         onChange={(e) => setNewIpForm({ ...newIpForm, department: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Notes &amp; Operational Details
                     </label>
                     <textarea
@@ -1798,16 +1794,16 @@ export const DeviceClassificationView: React.FC = () => {
                       placeholder="Additional metadata, rack position, switchport, etc."
                       value={newIpForm.notes}
                       onChange={(e) => setNewIpForm({ ...newIpForm, notes: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                     />
                   </div>
 
                   {/* Submit button */}
-                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
                     <button
                       type="button"
                       onClick={() => setQuickAssignModalClassification(null)}
-                      className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                      className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1829,18 +1825,18 @@ export const DeviceClassificationView: React.FC = () => {
       {/* CREATE / EDIT CLASSIFICATION MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
-          <div className="relative bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-100 overflow-hidden">
+          <div className="relative bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-900 dark:text-slate-100 overflow-hidden">
             {/* Modal Header (Sticky) */}
-            <div className="shrink-0 px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#121212]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/20">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:bg-blue-600/20 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
                   <Layers className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
                     {editingClassification ? `Edit Device Classification: ${editingClassification.name}` : 'Create New Device Classification'}
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {editingClassification
                       ? 'Update typology name, unique slug, hardware category, vendor mapping, and ports.'
                       : 'Define a new asset classification for network endpoints, physical hosts, or virtual machines.'}
@@ -1849,7 +1845,7 @@ export const DeviceClassificationView: React.FC = () => {
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Close dialog"
               >
                 ✕
@@ -1860,7 +1856,7 @@ export const DeviceClassificationView: React.FC = () => {
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col justify-between">
               <div className="px-6 py-5 space-y-5">
                 {formError && (
-                  <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+                  <div className="p-3 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:border-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{formError}</span>
                   </div>
@@ -1869,8 +1865,8 @@ export const DeviceClassificationView: React.FC = () => {
                 {/* Row 1: Name and Code */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Classification Name <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Classification Name <span className="text-rose-500 dark:text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -1889,13 +1885,13 @@ export const DeviceClassificationView: React.FC = () => {
                           setFormData({ ...formData, name: newName });
                         }
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Unique Code Identifier <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Unique Code Identifier <span className="text-rose-500 dark:text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -1903,7 +1899,7 @@ export const DeviceClassificationView: React.FC = () => {
                       placeholder="e.g. core_switch"
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '_') })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                     />
                     <span className="text-[10px] text-slate-500 mt-1 block">
                       Internal slug used in IP records and API calls
@@ -1914,13 +1910,13 @@ export const DeviceClassificationView: React.FC = () => {
                 {/* Row 2: Category and Vendor */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Hardware Category <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Hardware Category <span className="text-rose-500 dark:text-rose-400">*</span>
                     </label>
                     <select
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     >
                       {CATEGORIES.map((cat) => (
                         <option key={cat} value={cat}>
@@ -1931,7 +1927,7 @@ export const DeviceClassificationView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Hardware Vendor / OEM
                     </label>
                     <input
@@ -1939,7 +1935,7 @@ export const DeviceClassificationView: React.FC = () => {
                       placeholder="e.g. Cisco Systems, Dell EMC, Palo Alto"
                       value={formData.vendor}
                       onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -1947,7 +1943,7 @@ export const DeviceClassificationView: React.FC = () => {
                 {/* Row 3: Default Ports and SNMP */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Default Service Ports
                     </label>
                     <input
@@ -1955,17 +1951,17 @@ export const DeviceClassificationView: React.FC = () => {
                       placeholder="e.g. 22, 443, 8080, 161"
                       value={formData.defaultPorts}
                       onChange={(e) => setFormData({ ...formData, defaultPorts: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div className="flex items-center gap-3 pt-6">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
                       <input
                         type="checkbox"
                         checked={formData.snmpEnabled}
                         onChange={(e) => setFormData({ ...formData, snmpEnabled: e.target.checked })}
-                        className="rounded border-slate-700 bg-slate-950 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-blue-600 focus:ring-blue-500"
                       />
                       <span>Enable SNMP / Telemetry Monitoring</span>
                     </label>
@@ -1974,7 +1970,7 @@ export const DeviceClassificationView: React.FC = () => {
 
                 {/* Row 4: Description */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Description &amp; Operational Role
                   </label>
                   <textarea
@@ -1982,45 +1978,125 @@ export const DeviceClassificationView: React.FC = () => {
                     placeholder="Enter details on the hardware role, placement topology, or standard operating specifications..."
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>
 
                 {/* Row 5: Icon Picker */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">
-                    Visual Icon Representation
-                  </label>
-                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                    {AVAILABLE_ICONS.map((item) => {
-                      const IconComponent = item.icon;
-                      const isSelected = formData.icon === item.id;
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Visual Icon Representation
+                    </label>
+                    {/* Selected Icon Badge Preview */}
+                    {(() => {
+                      const selectedDef = AVAILABLE_ICONS.find((i) => i.id === formData.icon);
+                      const colorTheme = getColorTheme(formData.color);
                       return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, icon: item.id })}
-                          className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-xs cursor-pointer ${
-                            isSelected
-                              ? 'bg-blue-600/20 border-blue-500 text-blue-400 font-semibold shadow-sm'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                          }`}
-                          title={item.label}
-                        >
-                          <IconComponent className="w-4 h-4" />
-                          <span className="text-[10px] truncate max-w-full">{item.label.split(' ')[0]}</span>
-                        </button>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${colorTheme.bg} ${colorTheme.border} ${colorTheme.text}`}>
+                          <span className="text-[10px] opacity-70 font-normal">Active:</span>
+                          {renderIcon(formData.icon, 'w-3.5 h-3.5')}
+                          <span className="font-semibold">{selectedDef?.label || formData.icon}</span>
+                          <span className="text-[10px] opacity-70 font-mono">({formData.icon})</span>
+                        </div>
                       );
-                    })}
+                    })()}
+                  </div>
+
+                  {/* Icon Search & Filter Controls */}
+                  <div className="space-y-2 mb-2.5">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search 45+ icons (e.g., cctv, camera, server, wifi, ups, phone, db)..."
+                        value={iconSearchQuery}
+                        onChange={(e) => setIconSearchQuery(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-8 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                      {iconSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setIconSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white text-xs p-0.5"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category Filter Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                      {ICON_CATEGORIES.map((cat) => {
+                        const isCatActive = selectedIconCategory === cat;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setSelectedIconCategory(cat)}
+                            className={`px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors cursor-pointer ${
+                              isCatActive
+                                ? 'bg-blue-600 text-white font-medium shadow-sm'
+                                : 'bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800/40'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Icon Grid */}
+                  <div className="max-h-56 overflow-y-auto pr-1 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/80 p-2.5 scrollbar-thin">
+                    {filteredModalIcons.length === 0 ? (
+                      <div className="py-6 text-center text-slate-500 text-xs">
+                        No icons match "{iconSearchQuery}". Try another keyword or category.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                        {filteredModalIcons.map((item) => {
+                          const IconComponent = item.icon;
+                          const isSelected = formData.icon === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, icon: item.id })}
+                              className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all text-xs cursor-pointer group ${
+                                isSelected
+                                  ? 'bg-blue-50 dark:bg-blue-600/20 border-blue-500 text-blue-600 dark:text-blue-400 font-semibold shadow-sm ring-1 ring-blue-500/50'
+                                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                              title={`${item.label} (${item.category})`}
+                            >
+                              <IconComponent className={`w-4 h-4 transition-transform group-hover:scale-110 ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-300'}`} />
+                              <span className="text-[10px] truncate max-w-full text-center leading-tight">
+                                {item.label.split('/')[0].trim()}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1 px-1">
+                    <span>Showing {filteredModalIcons.length} of {AVAILABLE_ICONS.length} available icons</span>
+                    <span>Includes CCTV, cameras, servers, network, IoT &amp; more</span>
                   </div>
                 </div>
 
                 {/* Row 6: Color Theme Picker */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-2">
-                    Color Accent Theme
-                  </label>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Color Accent Theme
+                    </label>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {AVAILABLE_COLORS.length} Accessible Themes (Light &amp; Dark)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/80 scrollbar-thin">
                     {AVAILABLE_COLORS.map((col) => {
                       const isSelected = formData.color === col.id;
                       return (
@@ -2028,14 +2104,14 @@ export const DeviceClassificationView: React.FC = () => {
                           key={col.id}
                           type="button"
                           onClick={() => setFormData({ ...formData, color: col.id })}
-                          className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer ${
+                          className={`p-2 rounded-xl border flex items-center gap-2 transition-all text-xs cursor-pointer ${
                             isSelected
-                              ? `${col.bg} ${col.border} ${col.text} font-bold ring-2 ring-blue-500/40`
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/50'
+                              ? `${col.bg} ${col.border} ${col.text} font-bold ring-2 ring-blue-500/60 shadow-sm`
+                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                           }`}
                         >
-                          <span className={`w-2.5 h-2.5 rounded-full ${col.text.replace('text-', 'bg-')}`} />
-                          <span className="text-[10px] capitalize">{col.label}</span>
+                          <span className={`w-3.5 h-3.5 rounded-full shrink-0 shadow-xs ${col.swatch}`} />
+                          <span className="text-[11px] truncate capitalize">{col.label}</span>
                         </button>
                       );
                     })}
@@ -2044,11 +2120,11 @@ export const DeviceClassificationView: React.FC = () => {
               </div>
 
               {/* Modal Footer (Sticky) */}
-              <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3 bg-slate-900/95">
+              <div className="shrink-0 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3 bg-slate-50 dark:bg-slate-900/95">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-300 dark:border-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2067,22 +2143,22 @@ export const DeviceClassificationView: React.FC = () => {
       {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && targetDeleteClassification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4 border border-rose-500/20">
+          <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 border border-rose-500/20">
               <Trash2 className="w-6 h-6" />
             </div>
 
-            <h3 className="text-base font-bold text-white">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
               Delete Classification &quot;{targetDeleteClassification.name}&quot;?
             </h3>
 
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
               Are you sure you want to permanently remove this device classification? This action cannot be undone.
             </p>
 
             {deleteAffectedIpCount > 0 && (
-              <div className="mt-4 p-3 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-300 text-xs flex items-center gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+              <div className="mt-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                 <span>
                   Notice: <strong>{deleteAffectedIpCount}</strong> active allocated IP(s) currently use this classification. They will be migrated to &quot;other&quot;.
                 </span>
@@ -2093,7 +2169,7 @@ export const DeviceClassificationView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
               >
                 Cancel
               </button>
@@ -2112,25 +2188,25 @@ export const DeviceClassificationView: React.FC = () => {
       {/* SNMP TELEMETRY & MONITORING SETTINGS MODAL */}
       {isSnmpSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col my-8 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col my-8 animate-in fade-in zoom-in duration-200 text-slate-900 dark:text-slate-100">
             {/* Modal Header */}
-            <div className="shrink-0 px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+            <div className="shrink-0 px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#121212]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20">
                   <Activity className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white tracking-tight">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                     SNMP Monitoring &amp; Telemetry Configurator
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Configure automated health polling, custom time intervals, and SNMP protocol options.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsSnmpSettingsModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2139,13 +2215,13 @@ export const DeviceClassificationView: React.FC = () => {
             {/* Modal Body */}
             <form onSubmit={saveSnmpSettings} className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
               {/* Section 1: Power ON / OFF Switch */}
-              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <Zap className={`w-4 h-4 ${tempConfig.enabled ? 'text-amber-400' : 'text-slate-500'}`} />
-                    <span className="text-sm font-semibold text-[#171717] dark:text-white">Automated SNMP Telemetry Polling</span>
+                    <Zap className={`w-4 h-4 ${tempConfig.enabled ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`} />
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">Automated SNMP Telemetry Polling</span>
                   </div>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {tempConfig.enabled
                       ? 'Telemetry polling engine is actively probing classified endpoints.'
                       : 'Telemetry polling is currently paused. No automated probes will run.'}
@@ -2156,8 +2232,8 @@ export const DeviceClassificationView: React.FC = () => {
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                       tempConfig.enabled
-                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                     }`}
                   >
                     {tempConfig.enabled ? 'Active (ON)' : 'Paused (OFF)'}
@@ -2168,7 +2244,7 @@ export const DeviceClassificationView: React.FC = () => {
                     aria-checked={tempConfig.enabled}
                     onClick={() => setTempConfig({ ...tempConfig, enabled: !tempConfig.enabled })}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      tempConfig.enabled ? 'bg-emerald-500' : 'bg-slate-700'
+                      tempConfig.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
                     }`}
                   >
                     <span
@@ -2183,11 +2259,11 @@ export const DeviceClassificationView: React.FC = () => {
               {/* Section 2: Polling Interval Selection & Custom Time */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-blue-400" />
+                  <label className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                     <span>Polling Frequency &amp; Custom Interval</span>
                   </label>
-                  <span className="text-xs font-mono text-blue-400 font-semibold bg-blue-950/60 border border-blue-800/60 px-2 py-0.5 rounded">
+                  <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded">
                     Active: {formatInterval(tempConfig.intervalSeconds)} ({tempConfig.intervalSeconds}s)
                   </span>
                 </div>
@@ -2217,8 +2293,8 @@ export const DeviceClassificationView: React.FC = () => {
                         }
                         className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all border text-center cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-bold ring-2 ring-blue-500/30'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                            ? 'bg-blue-50 dark:bg-blue-600/20 border-blue-500 text-blue-600 dark:text-blue-300 font-bold ring-2 ring-blue-500/30'
+                            : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
                         }`}
                       >
                         {preset.label}
@@ -2228,8 +2304,8 @@ export const DeviceClassificationView: React.FC = () => {
                 </div>
 
                 {/* Custom Time Input Box */}
-                <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
-                  <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 font-medium">
                     <span>Set Custom Polling Interval:</span>
                     <span className="text-[11px] text-slate-500">Min 3s • Max 24h</span>
                   </div>
@@ -2251,7 +2327,7 @@ export const DeviceClassificationView: React.FC = () => {
                             intervalSeconds: Math.max(3, val * mult),
                           });
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-blue-500"
                         placeholder="e.g. 5"
                       />
                     </div>
@@ -2267,7 +2343,7 @@ export const DeviceClassificationView: React.FC = () => {
                           intervalSeconds: Math.max(5, tempConfig.customValue * mult),
                         });
                       }}
-                      className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                     >
                       <option value="seconds">Seconds (s)</option>
                       <option value="minutes">Minutes (m)</option>
@@ -2275,15 +2351,15 @@ export const DeviceClassificationView: React.FC = () => {
                     </select>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
                     <span>
                       Computed rate:{' '}
-                      <strong className="text-white">
+                      <strong className="text-slate-900 dark:text-white">
                         {Math.max(1, Math.round(3600 / tempConfig.intervalSeconds))} cycles/hour
                       </strong>
                     </span>
                     <span>
-                      Frequency: <strong className="text-blue-400">{formatInterval(tempConfig.intervalSeconds)}</strong>
+                      Frequency: <strong className="text-blue-600 dark:text-blue-400">{formatInterval(tempConfig.intervalSeconds)}</strong>
                     </span>
                   </div>
                 </div>
@@ -2292,13 +2368,13 @@ export const DeviceClassificationView: React.FC = () => {
               {/* Section 3: Protocol Version & Community String */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     SNMP Protocol Version
                   </label>
                   <select
                     value={tempConfig.snmpVersion}
                     onChange={(e) => setTempConfig({ ...tempConfig, snmpVersion: e.target.value as 'v2c' | 'v3' })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                   >
                     <option value="v2c">SNMPv2c (Community-Based)</option>
                     <option value="v3">SNMPv3 (USM / AuthPriv Security)</option>
@@ -2306,24 +2382,24 @@ export const DeviceClassificationView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Community String / Auth Context
                   </label>
                   <input
                     type="text"
                     value={tempConfig.communityString}
                     onChange={(e) => setTempConfig({ ...tempConfig, communityString: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                     placeholder="public"
                   />
                 </div>
               </div>
 
               {/* Section 4: Live Fleet Diagnostics & Test Probe */}
-              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
-                    <Gauge className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    <Gauge className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Fleet Health &amp; Telemetry Status</span>
                   </div>
                   <button
@@ -2338,37 +2414,37 @@ export const DeviceClassificationView: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] text-slate-500 uppercase font-medium">Monitored Profiles</div>
-                    <div className="text-sm font-bold text-[#171717] dark:text-white mt-0.5">{monitoredProfilesCount}</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{monitoredProfilesCount}</div>
                   </div>
-                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] text-slate-500 uppercase font-medium">Monitored IPs</div>
-                    <div className="text-sm font-bold text-emerald-400 mt-0.5">{monitoredIpCount.toLocaleString()}</div>
+                    <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{monitoredIpCount.toLocaleString()}</div>
                   </div>
-                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] text-slate-500 uppercase font-medium">Cycles Executed</div>
-                    <div className="text-sm font-bold text-[#171717] dark:text-white mt-0.5">{snmpConfig.totalPollCycles}</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{snmpConfig.totalPollCycles}</div>
                   </div>
-                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] text-slate-500 uppercase font-medium">Avg Latency</div>
-                    <div className="text-sm font-bold text-amber-400 mt-0.5">{snmpConfig.lastLatencyMs} ms</div>
+                    <div className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">{snmpConfig.lastLatencyMs} ms</div>
                   </div>
                 </div>
 
                 {snmpConfig.lastPolledAt && (
-                  <p className="text-[11px] text-slate-400 text-center font-mono">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center font-mono">
                     Last probe executed at: <strong>{snmpConfig.lastPolledAt}</strong> (100% OK)
                   </p>
                 )}
               </div>
 
               {/* Modal Footer */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsSnmpSettingsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>

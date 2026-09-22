@@ -12,31 +12,18 @@
   --color-body: var(--geist-body);
   --color-mute: var(--geist-mute);
   --color-faint: var(--geist-faint);
-
-  --color-slate-950: var(--geist-canvas);
-  --color-slate-900: var(--geist-card);
-  --color-slate-850: var(--geist-card-subtle);
-  --color-slate-800: var(--geist-border);
-  --color-slate-700: var(--geist-border-soft);
-  --color-slate-600: var(--geist-mute);
-  --color-slate-500: var(--geist-faint);
-  --color-slate-400: var(--geist-body);
-  --color-slate-300: var(--geist-body);
-  --color-slate-200: var(--geist-ink);
-  --color-slate-100: var(--geist-ink);
-  --color-slate-50: var(--geist-ink);
 }
 
 :root {
   --geist-canvas: #fafafa;
   --geist-card: #ffffff;
   --geist-card-subtle: #f7f7f8;
-  --geist-border: #ebebeb;
-  --geist-border-soft: #f2f2f2;
-  --geist-ink: #171717;
-  --geist-body: #4d4d4d;
-  --geist-mute: #8f8f8f;
-  --geist-faint: #a1a1a1;
+  --geist-border: #e2e8f0;
+  --geist-border-soft: #f1f5f9;
+  --geist-ink: #0f172a;
+  --geist-body: #334155;
+  --geist-mute: #475569;
+  --geist-faint: #64748b;
   --geist-link: #0070f3;
   --geist-shadow-whisper: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --geist-shadow-floating: 0 8px 30px rgba(0, 0, 0, 0.12);

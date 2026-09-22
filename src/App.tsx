@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { IPAMProvider, useIPAM } from './context/IPAMContext';
 import { Navbar } from './components/Navbar';
+import { DashboardView } from './components/DashboardView';
 import { SubnetList } from './components/SubnetList';
 import { SubnetDetailView } from './components/SubnetDetailView';
 import { UserManagement } from './components/UserManagement';
@@ -16,7 +17,6 @@ import { AuditLogsView } from './components/AuditLogsView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginModal } from './components/LoginModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { IPAMChatbot } from './components/IPAMChatbot';
 import { Shield } from 'lucide-react';
 
 const IPAMAppContent: React.FC = () => {
@@ -31,7 +31,8 @@ const IPAMAppContent: React.FC = () => {
 
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
-  const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [targetSubnetIp, setTargetSubnetIp] = useState<string | undefined>(undefined);
+  const [targetSubnetAction, setTargetSubnetAction] = useState<'view' | 'edit' | 'allocate' | undefined>(undefined);
 
   // Granular Tab Permissions based on RBAC matrix & explicitly assigned user permissions
   const isSuperAdmin = currentUser?.role === 'super_admin';
@@ -52,15 +53,15 @@ const IPAMAppContent: React.FC = () => {
   React.useEffect(() => {
     if (!currentUser) return;
     if (activeTab === 'users' && !canSeeUsers) {
-      setActiveTab('subnets');
+      setActiveTab('dashboard');
     } else if (activeTab === 'ldap_settings' && !canSeeLdap) {
-      setActiveTab('subnets');
+      setActiveTab('dashboard');
     } else if (activeTab === 'device_classifications' && !canSeeDeviceTypes) {
-      setActiveTab('subnets');
+      setActiveTab('dashboard');
     } else if (activeTab === 'audit' && !canSeeAudit) {
-      setActiveTab('subnets');
+      setActiveTab('dashboard');
     } else if (activeTab === 'backup_restore' && !canSeeBackup) {
-      setActiveTab('subnets');
+      setActiveTab('dashboard');
     }
   }, [currentUser?.role, activeTab, canSeeUsers, canSeeLdap, canSeeDeviceTypes, canSeeAudit, canSeeBackup, setActiveTab]);
 
@@ -81,8 +82,6 @@ const IPAMAppContent: React.FC = () => {
       <Navbar
         onOpenLogin={() => setLoginModalOpen(true)}
         onOpenChangePassword={() => setChangePasswordModalOpen(true)}
-        onToggleChatbot={() => setChatbotOpen((prev) => !prev)}
-        isChatbotOpen={chatbotOpen}
       />
 
       {/* Role / Scope Notice Banner */}
@@ -107,15 +106,42 @@ const IPAMAppContent: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {activeTab === 'dashboard' && (
+          <DashboardView
+            onSelectSubnet={(id, ip, action) => {
+              setSelectedSubnetId(id);
+              setTargetSubnetIp(ip);
+              setTargetSubnetAction(action);
+              setActiveTab('subnets');
+            }}
+            onNavigateTab={(tab) => {
+              setActiveTab(tab);
+              setSelectedSubnetId(null);
+              setTargetSubnetIp(undefined);
+              setTargetSubnetAction(undefined);
+            }}
+          />
+        )}
+
         {activeTab === 'subnets' && (
           selectedSubnetId ? (
             <SubnetDetailView
               subnetId={selectedSubnetId}
-              onBack={() => setSelectedSubnetId(null)}
+              targetIp={targetSubnetIp}
+              initialAction={targetSubnetAction}
+              onBack={() => {
+                setSelectedSubnetId(null);
+                setTargetSubnetIp(undefined);
+                setTargetSubnetAction(undefined);
+              }}
             />
           ) : (
             <SubnetList
-              onSelectSubnet={(id) => setSelectedSubnetId(id)}
+              onSelectSubnet={(id) => {
+                setSelectedSubnetId(id);
+                setTargetSubnetIp(undefined);
+                setTargetSubnetAction(undefined);
+              }}
               onOpenDeviceClassifications={() => setActiveTab('device_classifications')}
             />
           )
@@ -144,12 +170,6 @@ const IPAMAppContent: React.FC = () => {
         isOpen={changePasswordModalOpen}
         onClose={() => setChangePasswordModalOpen(false)}
       />
-
-      {/* Local Assistant Chatbot */}
-      <IPAMChatbot
-        isOpen={chatbotOpen}
-        onToggle={() => setChatbotOpen((prev) => !prev)}
-      />
     </div>
   );
 };
@@ -166,10 +186,10 @@ const AccessDenied: React.FC<{ tabName: string }> = ({ tabName }) => {
         Your role permissions do not permit viewing <strong>{tabName}</strong>. This module is reserved for system administrators.
       </p>
       <button
-        onClick={() => setActiveTab('subnets')}
+        onClick={() => setActiveTab('dashboard')}
         className="mt-6 px-4 py-2 rounded-lg bg-[#171717] hover:opacity-90 dark:bg-[#ededed] dark:text-black dark:hover:bg-white text-xs font-medium text-white transition-colors shadow-xs"
       >
-        Return to Subnets &amp; IPs
+        Return to Dashboard
       </button>
     </div>
   );

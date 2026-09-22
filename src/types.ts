@@ -178,6 +178,7 @@ export interface IPAMBackupData {
     totalDeviceClassifications: number;
     totalAuditLogs: number;
     ldapConfigured: boolean;
+    hasSnmpConfig?: boolean;
   };
   data: {
     subnets: Subnet[];
@@ -187,6 +188,7 @@ export interface IPAMBackupData {
     deviceClassifications: DeviceClassification[];
     auditLogs: AuditLog[];
     auditSettings: AuditSettings;
+    snmpConfig?: SnmpMonitoringConfig;
   };
 }
 
@@ -198,5 +200,6 @@ export interface RestoreOptions {
   restoreDeviceClasses: boolean;
   restoreAuditLogs: boolean;
   restoreAuditSettings: boolean;
+  restoreSnmpConfig?: boolean;
   mode: 'overwrite' | 'merge';
 }

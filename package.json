@@ -20,9 +20,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/typesafe-ai": "^3.0.4",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
+    "@typesafe-ai/sdk": "^0.6.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "ai": "^7.0.109",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
@@ -42,7 +45,6 @@
     "@types/pg": "^8.23.1",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
-    "puppeteer-core": "^25.10.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

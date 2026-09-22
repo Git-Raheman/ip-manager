@@ -232,21 +232,22 @@ export const UserManagement: React.FC = () => {
     }
 
     if (editingUser) {
-      const targetLocalPassword = formData.authType === 'local'
-        ? (formData.localPassword.trim() ? formData.localPassword : editingUser.localPassword)
-        : undefined;
-
-      const res = updateUser(editingUser.id, {
+      const updates: Partial<User> = {
         fullName: formData.fullName,
         email: formData.email,
         department: formData.department,
         authType: formData.authType,
-        localPassword: targetLocalPassword,
         ldapUpn: formData.authType === 'ldap_ad' ? formData.ldapUpn : undefined,
         role: formData.role,
         status: formData.status,
         permissions: formData.permissions,
-      });
+      };
+
+      if (formData.authType === 'local' && formData.localPassword.trim()) {
+        updates.localPassword = formData.localPassword.trim();
+      }
+
+      const res = updateUser(editingUser.id, updates);
       if (!res.success) {
         setFormError(res.message);
         return;
@@ -305,15 +306,15 @@ export const UserManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header & Metrics Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-[#171717] dark:text-white tracking-tight">User Management &amp; Access Control</h2>
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-medium">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">User Management &amp; Access Control</h2>
+            <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800 font-medium">
               RBAC Matrix
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Manage local database accounts, integrate enterprise Active Directory / LDAP authentication, and configure granular IP range permissions.
           </p>
         </div>
@@ -323,14 +324,14 @@ export const UserManagement: React.FC = () => {
             <button
               id="btn-add-user"
               onClick={openCreateModal}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold shadow-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Create User</span>
             </button>
           ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-400">
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
+              <ShieldAlert className="w-4 h-4 text-amber-500 dark:text-amber-400" />
               <span>Read-Only Mode</span>
             </div>
           )}
@@ -338,12 +339,12 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {!canManageUsers && (
-        <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-800/80 text-amber-200 text-xs flex items-center gap-3 shadow-sm">
-          <Lock className="w-5 h-5 text-amber-400 shrink-0" />
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-3 shadow-xs">
+          <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
           <div>
-            <p className="font-semibold text-white">Read-Only User Management</p>
-            <p className="text-[11px] text-amber-300/80 mt-0.5">
-              You are viewing user accounts in read-only mode. Creating, modifying, deleting, or adjusting user permissions requires the <code className="bg-amber-900/60 px-1 py-0.5 rounded text-amber-200 font-mono">manageUsers</code> permission.
+            <p className="font-semibold text-slate-900 dark:text-white">Read-Only User Management</p>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300/80 mt-0.5">
+              You are viewing user accounts in read-only mode. Creating, modifying, deleting, or adjusting user permissions requires the <code className="bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded text-amber-900 dark:text-amber-200 font-mono">manageUsers</code> permission.
             </p>
           </div>
         </div>
@@ -351,45 +352,45 @@ export const UserManagement: React.FC = () => {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Users</span>
-            <Users className="w-4 h-4 text-slate-500" />
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Users</span>
+            <Users className="w-4 h-4 text-slate-400 dark:text-slate-500" />
           </div>
-          <p className="text-2xl font-bold text-[#171717] dark:text-white mt-1">{users.length}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{users.length}</p>
           <p className="text-[11px] text-slate-500 mt-0.5">Configured identities</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Local Auth (DB)</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Local Auth (DB)</span>
             <Lock className="w-4 h-4 text-slate-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-200 mt-1">
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-200 mt-1">
             {users.filter((u) => u.authType === 'local').length}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">Encrypted local storage</p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-blue-400">Active Directory / LDAP</span>
-            <Server className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Active Directory / LDAP</span>
+            <Server className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <p className="text-2xl font-bold text-blue-300 mt-1">
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-300 mt-1">
             {users.filter((u) => u.authType === 'ldap_ad').length}
           </p>
-          <p className="text-[11px] text-blue-500/80 mt-0.5">
+          <p className="text-[11px] text-blue-600/80 dark:text-blue-500/80 mt-0.5">
             {ldapConfig.enabled ? 'Enterprise Sync Active' : 'AD Disabled'}
           </p>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-emerald-400">Active Accounts</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Active Accounts</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-emerald-300 mt-1">
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1">
             {users.filter((u) => u.status === 'active').length}
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -417,36 +418,37 @@ export const UserManagement: React.FC = () => {
       )}
 
       {/* Search & Filter Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
+            id="input-search-users"
             type="text"
             placeholder="Search by name, username, email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
           />
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-            <span className="text-[11px] text-slate-400 px-1.5">Auth:</span>
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 px-1.5">Auth:</span>
             <button
               onClick={() => setAuthFilter('all')}
-              className={`px-2 py-0.5 rounded ${authFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`px-2 py-0.5 rounded cursor-pointer ${authFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
             >
               All
             </button>
             <button
               onClick={() => setAuthFilter('local')}
-              className={`px-2 py-0.5 rounded ${authFilter === 'local' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`px-2 py-0.5 rounded cursor-pointer ${authFilter === 'local' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
             >
               Local DB
             </button>
             <button
               onClick={() => setAuthFilter('ldap_ad')}
-              className={`px-2 py-0.5 rounded ${authFilter === 'ldap_ad' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`px-2 py-0.5 rounded cursor-pointer ${authFilter === 'ldap_ad' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
             >
               Active Directory
             </button>
@@ -455,7 +457,7 @@ export const UserManagement: React.FC = () => {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500"
+            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
           >
             <option value="all">All Roles</option>
             <option value="super_admin">Super Admin</option>
@@ -467,10 +469,10 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950/70 border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="py-3.5 px-4 font-semibold min-w-[240px]">User Identity</th>
                 <th className="py-3.5 px-4 font-semibold min-w-[180px]">Authentication Type</th>
@@ -480,10 +482,10 @@ export const UserManagement: React.FC = () => {
                 <th className="py-3.5 px-4 font-semibold min-w-[130px] text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
+                  <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-slate-500">
                     No users matching criteria found.
                   </td>
                 </tr>
@@ -494,7 +496,7 @@ export const UserManagement: React.FC = () => {
                   const isRootAdmin = u.username.toLowerCase() === 'admin' || u.id === 'usr-admin';
 
                   return (
-                    <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                       {/* Identity */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
@@ -507,25 +509,25 @@ export const UserManagement: React.FC = () => {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-[#171717] dark:text-white text-sm">{u.fullName}</span>
+                              <span className="font-semibold text-slate-900 dark:text-white text-sm">{u.fullName}</span>
                               {isCurrent && (
-                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-900/60 text-blue-300 border border-blue-700 font-medium">
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-medium">
                                   You
                                 </span>
                               )}
                               {isRootAdmin && (
-                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-900/60 text-amber-300 border border-amber-700 font-medium flex items-center gap-1">
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700 font-medium flex items-center gap-1">
                                   <Lock className="w-2.5 h-2.5" /> Root Admin
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 font-mono">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-mono">
                               <span>@{u.username}</span>
                               <span>•</span>
                               <span>{u.email}</span>
                             </div>
                             {u.department && (
-                              <span className="text-[10px] text-slate-500">{u.department}</span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">{u.department}</span>
                             )}
                           </div>
                         </div>
@@ -535,21 +537,21 @@ export const UserManagement: React.FC = () => {
                       <td className="py-3 px-4">
                         {isAd ? (
                           <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-950/80 text-blue-400 border border-blue-800/80 font-medium text-xs">
-                              <Server className="w-3.5 h-3.5 text-blue-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/80 dark:text-blue-400 dark:border-blue-800/80 font-medium text-xs">
+                              <Server className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                               <span>Active Directory / LDAP</span>
                             </span>
-                            <p className="text-[10px] text-slate-400 font-mono">
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                               UPN: {u.ldapUpn || `${u.username}@${ldapConfig.domain}`}
                             </p>
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700 font-medium text-xs">
-                              <Lock className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium text-xs">
+                              <Lock className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                               <span>Local Database</span>
                             </span>
-                            <p className="text-[10px] text-slate-500">Internal Auth Store</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500">Internal Auth Store</p>
                           </div>
                         )}
                       </td>
@@ -566,37 +568,37 @@ export const UserManagement: React.FC = () => {
                           </div>
                           <div className="flex flex-wrap items-center gap-1 text-[10px]">
                             {u.permissions.manageUsers && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 Users
                               </span>
                             )}
                             {u.permissions.createSubnet && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 Subnets
                               </span>
                             )}
                             {u.permissions.allocateIP && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 IPs
                               </span>
                             )}
                             {u.permissions.manageDeviceClassifications && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 Devices
                               </span>
                             )}
                             {u.permissions.manageAuthSettings && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 AD / LDAP
                               </span>
                             )}
                             {u.permissions.viewAuditLogs && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 Audit
                               </span>
                             )}
                             {u.permissions.exportData && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60 font-medium whitespace-nowrap">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
                                 Export
                               </span>
                             )}
@@ -608,17 +610,17 @@ export const UserManagement: React.FC = () => {
                       <td className="py-3 px-4">
                         {u.permissions.allowedSubnetIds && u.permissions.allowedSubnetIds.length > 0 ? (
                           <div>
-                            <span className="text-amber-400 bg-amber-950/60 border border-amber-800/80 px-2 py-0.5 rounded text-[11px] font-medium">
+                            <span className="text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 px-2 py-0.5 rounded text-[11px] font-medium">
                               Restricted ({u.permissions.allowedSubnetIds.length} Subnet)
                             </span>
-                            <div className="text-[10px] text-slate-400 mt-1">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                               {u.permissions.allowedSubnetIds
                                 .map((id) => subnets.find((s) => s.id === id)?.name || id)
                                 .join(', ')}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded text-[11px] font-medium">
+                          <span className="text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-2 py-0.5 rounded text-[11px] font-medium">
                             Full Access (All Subnets)
                           </span>
                         )}
@@ -627,17 +629,18 @@ export const UserManagement: React.FC = () => {
                       {/* Status */}
                       <td className="py-3 px-4">
                         <button
+                          id={`btn-toggle-status-${u.username}`}
                           disabled={!canManageUsers || isCurrent || isRootAdmin}
                           onClick={() => toggleUserStatus(u.id)}
                           title={isRootAdmin ? 'Root Admin account cannot be deactivated' : undefined}
                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                             u.status === 'active'
-                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                              : 'bg-rose-950 text-rose-400 border border-rose-800'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-800'
                           } ${canManageUsers && !isCurrent && !isRootAdmin ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-80'}`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${u.status === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`}
+                            className={`w-1.5 h-1.5 rounded-full ${u.status === 'active' ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-rose-500 dark:bg-rose-400'}`}
                           />
                           <span className="capitalize">{u.status}</span>
                         </button>
@@ -650,7 +653,7 @@ export const UserManagement: React.FC = () => {
                           <button
                             onClick={() => handleTestAuth(u)}
                             title="Test user authentication"
-                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-medium transition-colors"
+                            className="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-xs"
                           >
                             Verify Auth
                           </button>
@@ -658,9 +661,10 @@ export const UserManagement: React.FC = () => {
                           {/* Edit User */}
                           {canManageUsers && (
                             <button
+                              id={`btn-edit-user-${u.username}`}
                               onClick={() => openEditModal(u)}
                               title="Edit user settings"
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shadow-xs"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -669,12 +673,13 @@ export const UserManagement: React.FC = () => {
                           {/* Delete User */}
                           {canManageUsers && !isCurrent && !isRootAdmin && (
                             <button
+                              id={`btn-delete-user-${u.username}`}
                               onClick={() => {
                                 setDeleteUserError(null);
                                 setUserToDelete(u);
                               }}
                               title="Delete user"
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700 transition-colors"
+                              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/60 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-300 border border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-700 transition-colors cursor-pointer shadow-xs"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -682,9 +687,9 @@ export const UserManagement: React.FC = () => {
                           {isRootAdmin && (
                             <span
                               title="Root administrator account cannot be deleted"
-                              className="p-1.5 rounded-lg bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed inline-flex items-center justify-center"
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-800 cursor-not-allowed inline-flex items-center justify-center"
                             >
-                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                             </span>
                           )}
                         </div>
@@ -701,18 +706,18 @@ export const UserManagement: React.FC = () => {
       {/* CREATE / EDIT USER MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
-          <div className="relative bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-100 overflow-hidden">
+          <div className="relative bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-900 dark:text-slate-100 overflow-hidden">
             {/* Modal Header (Sticky) */}
-            <div className="shrink-0 px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#0c0c0c]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                   <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-[#171717] dark:text-white leading-tight">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
                     {editingUser ? `Edit User: @${editingUser.username}` : 'Create New User Account'}
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {editingUser
                       ? 'Update credentials, Active Directory mapping, and granular RBAC permissions.'
                       : 'Provision local database or Active Directory / LDAP authenticated account.'}
@@ -721,7 +726,7 @@ export const UserManagement: React.FC = () => {
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Close dialog"
               >
                 ✕
@@ -741,101 +746,107 @@ export const UserManagement: React.FC = () => {
                 {/* Basic Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Username <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Username <span className="text-rose-500 dark:text-rose-400">*</span>
                   </label>
                   <input
+                    id="input-user-username"
                     type="text"
                     required
                     disabled={!!editingUser}
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     placeholder="e.g. jdoe"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Full Name <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Full Name <span className="text-rose-500 dark:text-rose-400">*</span>
                   </label>
                   <input
+                    id="input-user-fullname"
                     type="text"
                     required
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     placeholder="e.g. John Doe"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
                   <input
+                    id="input-user-email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="e.g. jdoe@corp.contoso.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Department / Unit</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Department / Unit</label>
                   <input
+                    id="input-user-department"
                     type="text"
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     placeholder="e.g. Cloud Network Operations"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
               {/* AUTHENTICATION SOURCE SELECTOR (CRITICAL REQUEST) */}
               <div className="pt-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                   Authentication Source &amp; Provider
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Option 1: Local Database */}
                   <div
+                    id="auth-type-local"
                     onClick={() => setFormData({ ...formData, authType: 'local' })}
                     className={`cursor-pointer p-4 rounded-xl border transition-all ${
                       formData.authType === 'local'
-                        ? 'bg-blue-950/40 border-blue-500 ring-1 ring-blue-500/50'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        ? 'bg-blue-50/60 dark:bg-blue-950/40 border-blue-500 ring-1 ring-blue-500/50'
+                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Lock className={`w-4 h-4 ${formData.authType === 'local' ? 'text-blue-400' : 'text-slate-400'}`} />
-                        <span className="font-semibold text-xs text-[#171717] dark:text-white">Local Database</span>
+                        <Lock className={`w-4 h-4 ${formData.authType === 'local' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`} />
+                        <span className="font-semibold text-xs text-slate-900 dark:text-white">Local Database</span>
                       </div>
-                      {formData.authType === 'local' && <Check className="w-4 h-4 text-blue-400" />}
+                      {formData.authType === 'local' && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                       Credentials stored directly in the IPAM application database. User logs in with local username and password.
                     </p>
                   </div>
 
                   {/* Option 2: Active Directory / LDAP */}
                   <div
+                    id="auth-type-ldap"
                     onClick={() => setFormData({ ...formData, authType: 'ldap_ad' })}
                     className={`cursor-pointer p-4 rounded-xl border transition-all ${
                       formData.authType === 'ldap_ad'
-                        ? 'bg-blue-950/40 border-blue-500 ring-1 ring-blue-500/50'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        ? 'bg-blue-50/60 dark:bg-blue-950/40 border-blue-500 ring-1 ring-blue-500/50'
+                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Server className={`w-4 h-4 ${formData.authType === 'ldap_ad' ? 'text-blue-400' : 'text-slate-400'}`} />
-                        <span className="font-semibold text-xs text-[#171717] dark:text-white">Active Directory / LDAP</span>
+                        <Server className={`w-4 h-4 ${formData.authType === 'ldap_ad' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`} />
+                        <span className="font-semibold text-xs text-slate-900 dark:text-white">Active Directory / LDAP</span>
                       </div>
-                      {formData.authType === 'ldap_ad' && <Check className="w-4 h-4 text-blue-400" />}
+                      {formData.authType === 'ldap_ad' && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
                     </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                       Delegates credential verification to Microsoft Active Directory / OpenLDAP via LDAPS bind protocol.
                     </p>
                   </div>
@@ -844,44 +855,46 @@ export const UserManagement: React.FC = () => {
 
               {/* Conditional Auth Inputs */}
               {formData.authType === 'local' ? (
-                <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
-                  <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                <div className="bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-300 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     Local Password Setup
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">
+                      <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">
                         {editingUser ? 'New Password (leave blank to keep current)' : 'Password *'}
                       </label>
                       <input
+                        id="input-user-password"
                         type="password"
                         value={formData.localPassword}
                         onChange={(e) => setFormData({ ...formData, localPassword: e.target.value })}
                         placeholder="••••••••"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">Confirm Password</label>
+                      <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">Confirm Password</label>
                       <input
+                        id="input-user-confirm-password"
                         type="password"
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                         placeholder="••••••••"
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
-                  <span className="text-xs font-semibold text-blue-300 flex items-center gap-1.5">
-                    <Server className="w-3.5 h-3.5 text-blue-400" />
+                <div className="bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-300 flex items-center gap-1.5">
+                    <Server className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     Active Directory Account Mapping
                   </span>
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">
+                    <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">
                       LDAP User Principal Name (UPN) or sAMAccountName *
                     </label>
                     <input
@@ -889,7 +902,7 @@ export const UserManagement: React.FC = () => {
                       value={formData.ldapUpn}
                       onChange={(e) => setFormData({ ...formData, ldapUpn: e.target.value })}
                       placeholder={`e.g. ${formData.username || 'username'}@${ldapConfig.domain || 'domain.corp'}`}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-blue-500"
                     />
                     <p className="text-[10px] text-slate-500 mt-1">
                       Enter the authentic directory identity for domain Kerberos / LDAP bind.
@@ -900,7 +913,7 @@ export const UserManagement: React.FC = () => {
 
               {/* Role Selection */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                   System Role
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -910,19 +923,20 @@ export const UserManagement: React.FC = () => {
                     return (
                       <button
                         key={r}
+                        id={`btn-role-${r}`}
                         type="button"
                         disabled={isDisabled}
                         onClick={() => !isDisabled && handleRoleChange(r)}
-                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                           formData.role === r
-                            ? 'bg-blue-50 text-blue-700 border-blue-500 dark:bg-blue-950/60 dark:text-white'
+                            ? 'bg-blue-50 text-blue-700 border-blue-500 dark:bg-blue-950/60 dark:text-white shadow-xs'
                             : isDisabled
-                            ? 'bg-slate-950/40 border-slate-900 text-slate-600 cursor-not-allowed opacity-50'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/40'
+                            ? 'bg-slate-100 dark:bg-slate-950/40 border-slate-200 dark:border-slate-900 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
+                            : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                         }`}
                       >
                         <p className="font-semibold text-xs capitalize">{r.replace('_', ' ')}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                           {r === 'super_admin'
                             ? 'Full system control'
                             : r === 'network_admin'
@@ -939,10 +953,10 @@ export const UserManagement: React.FC = () => {
 
               {/* Granular RBAC Permissions Matrix */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                   Granular Permissions Matrix
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-950 border border-slate-800 rounded-xl p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
                   {[
                     { key: 'createSubnet', label: 'Create New Subnets / CIDRs' },
                     { key: 'editSubnet', label: 'Edit Subnet Parameters' },
@@ -962,15 +976,15 @@ export const UserManagement: React.FC = () => {
                     return (
                       <label
                         key={key}
-                        className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-900 cursor-pointer text-xs"
+                        className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer text-xs"
                       >
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => handlePermissionToggle(key as keyof GranularPermissions)}
-                          className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-blue-600 focus:ring-blue-500 h-4 w-4"
                         />
-                        <span className={isChecked ? 'text-slate-200 font-medium' : 'text-slate-400'}>
+                        <span className={isChecked ? 'text-slate-900 dark:text-slate-200 font-medium' : 'text-slate-500 dark:text-slate-400'}>
                           {label}
                         </span>
                       </label>
@@ -981,13 +995,13 @@ export const UserManagement: React.FC = () => {
 
               {/* Subnet Scope Restriction */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                   Subnet Access Restriction (Scope)
                 </label>
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-xs">
-                    <span className="text-slate-300 font-medium">Restricted Subnets:</span>
-                    <span className="text-[11px] text-slate-400">
+                <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800 text-xs">
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">Restricted Subnets:</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
                       {formData.permissions.allowedSubnetIds?.length === 0
                         ? 'All subnets accessible (No restriction)'
                         : `${formData.permissions.allowedSubnetIds?.length} subnet(s) permitted`}
@@ -1006,16 +1020,16 @@ export const UserManagement: React.FC = () => {
                           onClick={() => toggleSubnetScope(sub.id)}
                           className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
                             formData.permissions.allowedSubnetIds?.includes(sub.id)
-                              ? 'bg-blue-950/60 border-blue-600 text-blue-200'
-                              : 'bg-slate-900/80 border-slate-800 text-slate-400'
+                              ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-200'
+                              : 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
                           }`}
                         >
                           <div>
-                            <p className="font-semibold text-slate-200">{sub.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{sub.cidr}</p>
+                            <p className="font-semibold text-slate-900 dark:text-slate-200">{sub.name}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{sub.cidr}</p>
                           </div>
                           {formData.permissions.allowedSubnetIds?.includes(sub.id) && (
-                            <Check className="w-3.5 h-3.5 text-blue-400" />
+                            <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                           )}
                         </div>
                       );
@@ -1029,12 +1043,12 @@ export const UserManagement: React.FC = () => {
             </div>
 
             {/* Modal Footer (Sticky) */}
-            <div className="shrink-0 px-6 py-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/95">
+            <div className="shrink-0 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900/95">
               {/* Account Status */}
               <div className="flex items-center gap-3 w-full sm:w-auto">
-                <span className="text-xs font-semibold text-slate-300">Account Status:</span>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Account Status:</span>
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
                     <input
                       type="radio"
                       name="status"
@@ -1045,7 +1059,7 @@ export const UserManagement: React.FC = () => {
                     />
                     <span>Active</span>
                   </label>
-                  <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
                     <input
                       type="radio"
                       name="status"
@@ -1064,13 +1078,14 @@ export const UserManagement: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
+                  id="btn-submit-user-form"
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-colors"
+                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors cursor-pointer"
                 >
                   {editingUser ? 'Save Changes' : 'Create User'}
                 </button>
@@ -1083,42 +1098,42 @@ export const UserManagement: React.FC = () => {
     {/* DELETE USER CONFIRMATION MODAL */}
     {userToDelete && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4 border border-rose-500/20">
+        <div className="bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-900 dark:text-slate-100">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 border border-rose-500/20">
             <Trash2 className="w-6 h-6" />
           </div>
 
-          <h3 className="text-base font-bold text-[#171717] dark:text-white">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">
             Delete User Account &quot;@{userToDelete.username}&quot;?
           </h3>
 
-          <div className="mt-2 p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs space-y-1.5 font-mono">
-            <div className="flex justify-between text-slate-400">
+          <div className="mt-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 text-xs space-y-1.5 font-mono">
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
               <span>Full Name:</span>
-              <span className="text-slate-200 font-sans font-medium">{userToDelete.fullName}</span>
+              <span className="text-slate-900 dark:text-slate-200 font-sans font-medium">{userToDelete.fullName}</span>
             </div>
-            <div className="flex justify-between text-slate-400">
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
               <span>Auth Type:</span>
-              <span className="text-blue-400 capitalize">{userToDelete.authType === 'ldap_ad' ? 'Active Directory' : 'Local DB'}</span>
+              <span className="text-blue-600 dark:text-blue-400 capitalize">{userToDelete.authType === 'ldap_ad' ? 'Active Directory' : 'Local DB'}</span>
             </div>
-            <div className="flex justify-between text-slate-400">
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
               <span>Role:</span>
-              <span className="text-emerald-400 capitalize">{userToDelete.role}</span>
+              <span className="text-emerald-600 dark:text-emerald-400 capitalize">{userToDelete.role}</span>
             </div>
             {userToDelete.email && (
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-slate-500 dark:text-slate-400">
                 <span>Email:</span>
-                <span className="text-slate-300">{userToDelete.email}</span>
+                <span className="text-slate-700 dark:text-slate-300">{userToDelete.email}</span>
               </div>
             )}
           </div>
 
-          <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
             Are you sure you want to permanently delete this user account? The user will immediately lose access to the IPAM system and all session tokens will be invalidated.
           </p>
 
           {deleteUserError && (
-            <div className="mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs">
+            <div className="mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs">
               {deleteUserError}
             </div>
           )}
@@ -1127,11 +1142,12 @@ export const UserManagement: React.FC = () => {
             <button
               type="button"
               onClick={() => setUserToDelete(null)}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors border border-slate-800"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
             >
               Cancel
             </button>
             <button
+              id="btn-confirm-delete-user"
               type="button"
               onClick={() => {
                 const res = deleteUser(userToDelete.id);
@@ -1141,7 +1157,7 @@ export const UserManagement: React.FC = () => {
                 }
                 setUserToDelete(null);
               }}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-colors cursor-pointer"
             >
               Delete User
             </button>

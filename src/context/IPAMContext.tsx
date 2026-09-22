@@ -28,6 +28,7 @@ import {
 import { parseCIDR, isValidIPv4 } from '../utils/ipUtils';
 
 export type NavigationTab =
+  | 'dashboard'
   | 'subnets'
   | 'users'
   | 'device_classifications'
@@ -36,6 +37,7 @@ export type NavigationTab =
   | 'backup_restore';
 
 const VALID_TABS: NavigationTab[] = [
+  'dashboard',
   'subnets',
   'users',
   'device_classifications',
@@ -49,10 +51,10 @@ export function parseInitialRoute(): {
   subnetId: string | null;
 } {
   if (typeof window === 'undefined') {
-    return { tab: 'subnets', subnetId: null };
+    return { tab: 'dashboard', subnetId: null };
   }
 
-  // 1. Search params (?tab=users or ?subnetId=...)
+  // 1. Search params (?tab=dashboard or ?tab=subnets or ?subnetId=...)
   try {
     const searchParams = new URLSearchParams(window.location.search);
     const queryTab = searchParams.get('tab') as NavigationTab | null;
@@ -62,7 +64,7 @@ export function parseInitialRoute(): {
     }
   } catch (e) {}
 
-  // 2. URL Hash (#subnets/subnet-123 or #users or #subnets?id=...)
+  // 2. URL Hash (#dashboard or #subnets/subnet-123 or #users or #subnets?id=...)
   try {
     const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
     if (rawHash) {
@@ -96,7 +98,7 @@ export function parseInitialRoute(): {
     }
   } catch (e) {}
 
-  return { tab: 'subnets', subnetId: null };
+  return { tab: 'dashboard', subnetId: null };
 }
 
 interface IPAMContextType {
@@ -251,190 +253,80 @@ interface IPAMContextType {
 
 const IPAMContext = createContext<IPAMContextType | undefined>(undefined);
 
-// Purge any stale demo caches if stored version is not 3.2.0
+// Clear legacy database cache blobs from browser localStorage so the browser is never stuck with stale data
 if (typeof window !== 'undefined') {
-  const version = localStorage.getItem('ipam_db_version');
-  if (version !== '3.2.0') {
-    localStorage.removeItem('ipam_users');
-    localStorage.removeItem('ipam_subnets');
-    localStorage.removeItem('ipam_ips');
-    localStorage.removeItem('ipam_ldap_config');
-    localStorage.removeItem('ipam_audit_logs');
-    localStorage.removeItem('ipam_device_classifications');
-    localStorage.removeItem('ipam_audit_settings');
-    localStorage.removeItem('ipam_current_user_id');
-    localStorage.setItem('ipam_db_version', '3.2.0');
+  const keysToPurge = [
+    'ipam_ips',
+    'ipam_subnets',
+    'ipam_users',
+    'ipam_audit_logs',
+    'ipam_device_classifications',
+    'ipam_ldap_config',
+    'ipam_audit_settings',
+    'ipam_snmp_monitoring_config',
+    'ipam_current_user_id',
+    'ipam_db_version',
+  ];
+  for (const k of keysToPurge) {
+    try {
+      localStorage.removeItem(k);
+    } catch (e) {}
   }
 }
 
-export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load from localStorage or defaults
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('ipam_users');
-    if (saved) {
-      try {
-        const parsed: User[] = JSON.parse(saved);
-        // If legacy demo users exist, return clean fresh users
-        if (parsed.some((u) => u.username === 'sarah.ad' || u.username === 'mark.branch')) {
-          return INITIAL_USERS;
-        }
-        return parsed;
-      } catch (e) {
-        return INITIAL_USERS;
-      }
-    }
-    return INITIAL_USERS;
-  });
+const SESSION_USER_KEY = 'ipam_session_user_id';
+const SESSION_BOOT_KEY = 'ipam_session_boot_id';
+const SESSION_ACTIVITY_KEY = 'ipam_session_last_activity';
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
+const getStoredSession = (): { userId: string | null; bootId: string | null; isExpired: boolean } => {
+  if (typeof window === 'undefined') return { userId: null, bootId: null, isExpired: false };
+  try {
+    const userId = localStorage.getItem(SESSION_USER_KEY);
+    const bootId = localStorage.getItem(SESSION_BOOT_KEY);
+    const lastActivityStr = localStorage.getItem(SESSION_ACTIVITY_KEY);
+    if (!userId) return { userId: null, bootId: null, isExpired: false };
+    const lastActivity = lastActivityStr ? parseInt(lastActivityStr, 10) : 0;
+    const isExpired = Date.now() - lastActivity >= IDLE_TIMEOUT_MS;
+    return { userId, bootId, isExpired };
+  } catch {
+    return { userId: null, bootId: null, isExpired: false };
+  }
+};
+
+const clearStoredSession = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(SESSION_USER_KEY);
+    localStorage.removeItem(SESSION_BOOT_KEY);
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
+  } catch {}
+};
+
+export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Direct live in-memory state; authoritative data is loaded live from server database
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  // Restore current user immediately if active within 15-minute window to avoid refresh flicker
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const savedId = localStorage.getItem('ipam_current_user_id');
-    const savedUsersRaw = localStorage.getItem('ipam_users');
-    let userPool: User[] = INITIAL_USERS;
-    if (savedUsersRaw) {
-      try {
-        const parsed = JSON.parse(savedUsersRaw);
-        if (!parsed.some((u: User) => u.username === 'sarah.ad')) {
-          userPool = parsed;
-        }
-      } catch (e) {
-        userPool = INITIAL_USERS;
-      }
+    const session = getStoredSession();
+    if (session.userId && !session.isExpired) {
+      const candidate = INITIAL_USERS.find((u) => u.id === session.userId);
+      return candidate || null;
     }
-    if (savedId) {
-      const found = userPool.find((u) => u.id === savedId && u.status !== 'disabled');
-      if (found) return found;
-    }
-    // Require authentication via Login page
     return null;
   });
-
-  const [subnets, setSubnets] = useState<Subnet[]>(() => {
-    const saved = localStorage.getItem('ipam_subnets');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // If old demo subnets exist, purge them
-        if (parsed.some((s: Subnet) => s.id === 'subnet-hq' || s.id === 'subnet-prod')) {
-          return INITIAL_SUBNETS;
-        }
-        return parsed;
-      } catch (e) {
-        return INITIAL_SUBNETS;
-      }
-    }
-    return INITIAL_SUBNETS;
-  });
-
-  const [ips, setIps] = useState<IPRecord[]>(() => {
-    const saved = localStorage.getItem('ipam_ips');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.some((i: IPRecord) => i.subnetId === 'subnet-hq' || i.subnetId === 'subnet-prod')) {
-          return INITIAL_IPS;
-        }
-        return parsed;
-      } catch (e) {
-        return INITIAL_IPS;
-      }
-    }
-    return INITIAL_IPS;
-  });
-
-  const [ldapConfig, setLdapConfig] = useState<LdapConfig>(() => {
-    const saved = localStorage.getItem('ipam_ldap_config');
-    return saved ? JSON.parse(saved) : INITIAL_LDAP_CONFIG;
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('ipam_audit_logs');
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-  });
-
-  const [deviceClassifications, setDeviceClassifications] = useState<DeviceClassification[]>(() => {
-    const saved = localStorage.getItem('ipam_device_classifications');
-    return saved ? JSON.parse(saved) : INITIAL_DEVICE_CLASSIFICATIONS;
-  });
-
-  const [auditSettings, setAuditSettings] = useState<AuditSettings>(() => {
-    const saved = localStorage.getItem('ipam_audit_settings');
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_SETTINGS;
-  });
-
-  const [snmpConfig, setSnmpConfig] = useState<SnmpMonitoringConfig>(() => {
-    try {
-      const saved = localStorage.getItem('ipam_snmp_monitoring_config');
-      if (saved) return { ...INITIAL_SNMP_CONFIG, ...JSON.parse(saved) };
-    } catch (e) {}
-    return INITIAL_SNMP_CONFIG;
-  });
+  const [subnets, setSubnets] = useState<Subnet[]>(INITIAL_SUBNETS);
+  const [ips, setIps] = useState<IPRecord[]>(INITIAL_IPS);
+  const [ldapConfig, setLdapConfig] = useState<LdapConfig>(INITIAL_LDAP_CONFIG);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [deviceClassifications, setDeviceClassifications] = useState<DeviceClassification[]>(INITIAL_DEVICE_CLASSIFICATIONS);
+  const [auditSettings, setAuditSettings] = useState<AuditSettings>(INITIAL_AUDIT_SETTINGS);
+  const [snmpConfig, setSnmpConfig] = useState<SnmpMonitoringConfig>(INITIAL_SNMP_CONFIG);
 
   const initialRoute = parseInitialRoute();
   const [activeTab, setActiveTab] = useState<NavigationTab>(initialRoute.tab);
   const [selectedSubnetId, setSelectedSubnetId] = useState<string | null>(initialRoute.subnetId);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
-
-  // Sync state to localStorage with quota-safe fallbacks
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_users', JSON.stringify(users));
-    } catch (e) {}
-  }, [users]);
-
-  useEffect(() => {
-    try {
-      if (currentUser) {
-        localStorage.setItem('ipam_current_user_id', currentUser.id);
-      } else {
-        localStorage.removeItem('ipam_current_user_id');
-      }
-    } catch (e) {}
-  }, [currentUser]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_subnets', JSON.stringify(subnets));
-    } catch (e) {}
-  }, [subnets]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_ips', JSON.stringify(ips));
-    } catch (err) {
-      // LocalStorage quota is capped at 5MB in browsers; high-scale data is persisted via PostgreSQL backend
-      console.warn('[IPAM] LocalStorage cache quota exceeded; persisted securely via server PostgreSQL database.');
-    }
-  }, [ips]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_ldap_config', JSON.stringify(ldapConfig));
-    } catch (e) {}
-  }, [ldapConfig]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_audit_logs', JSON.stringify(auditLogs));
-    } catch (e) {}
-  }, [auditLogs]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_device_classifications', JSON.stringify(deviceClassifications));
-    } catch (e) {}
-  }, [deviceClassifications]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_audit_settings', JSON.stringify(auditSettings));
-    } catch (e) {}
-  }, [auditSettings]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ipam_snmp_monitoring_config', JSON.stringify(snmpConfig));
-    } catch (e) {}
-  }, [snmpConfig]);
 
   // Sync URL hash & localStorage with current view so browser refresh stays on current page
   useEffect(() => {
@@ -483,7 +375,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
     async function fetchServerDatabase() {
       try {
-        const res = await fetch('/api/ipam/state');
+        const res = await fetch('/api/ipam/state', { cache: 'no-store' });
         if (!res.ok) {
           isInitialLoadDoneRef.current = true;
           setIsInitialLoadDone(true);
@@ -492,33 +384,52 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const result = await res.json();
         if (result.success && result.data && isMounted) {
           const d = result.data;
+          const serverBootId: string | undefined = result.serverBootId;
           if (Array.isArray(d.subnets)) setSubnets(d.subnets);
           if (Array.isArray(d.ips)) setIps(d.ips);
           if (Array.isArray(d.users)) {
             setUsers(d.users);
 
-            // Re-bind current user session if needed
-            setCurrentUser((prev) => {
-              if (prev) {
-                const matched = d.users.find((u: User) => u.id === prev.id && u.status !== 'disabled');
-                return matched || null;
+            const session = getStoredSession();
+            if (session.isExpired && session.userId) {
+              // 15-minute idle timeout expired while away/refreshed
+              clearStoredSession();
+              setCurrentUser(null);
+              setInactivityMessage('Your session has expired due to 15 minutes of inactivity. Please sign in again.');
+            } else if (session.userId) {
+              // Check if docker compose down and up happened (serverBootId mismatch)
+              if (session.bootId && serverBootId && session.bootId !== serverBootId) {
+                // Server was rebooted / fresh docker container: reset session
+                clearStoredSession();
+                setCurrentUser(null);
+              } else {
+                // Same server / fresh refresh: re-validate user in live database
+                const liveUser = d.users.find((u: User) => u.id === session.userId && u.status !== 'disabled');
+                if (liveUser) {
+                  setCurrentUser(liveUser);
+                  if (serverBootId) {
+                    try {
+                      localStorage.setItem(SESSION_BOOT_KEY, serverBootId);
+                      localStorage.setItem(SESSION_ACTIVITY_KEY, String(Date.now()));
+                    } catch {}
+                  }
+                } else {
+                  clearStoredSession();
+                  setCurrentUser(null);
+                }
               }
-              const savedId = localStorage.getItem('ipam_current_user_id');
-              if (savedId) {
-                const matched = d.users.find((u: User) => u.id === savedId && u.status !== 'disabled');
-                if (matched) return matched;
-              }
-              return null;
-            });
+            }
           }
           if (d.ldapConfig) setLdapConfig(d.ldapConfig);
           if (Array.isArray(d.auditLogs)) setAuditLogs(d.auditLogs);
-          if (Array.isArray(d.deviceClassifications)) setDeviceClassifications(d.deviceClassifications);
+          if (Array.isArray(d.deviceClassifications) && d.deviceClassifications.length > 0) {
+            setDeviceClassifications(d.deviceClassifications);
+          }
           if (d.auditSettings) setAuditSettings(d.auditSettings);
           if (d.snmpConfig) setSnmpConfig(d.snmpConfig);
         }
       } catch (err) {
-        console.warn('[IPAM] Server database load error, running from local cache:', err);
+        console.warn('[IPAM] Server database load error:', err);
       } finally {
         if (isMounted) {
           isInitialLoadDoneRef.current = true;
@@ -527,18 +438,21 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     fetchServerDatabase();
+
     return () => {
       isMounted = false;
     };
   }, []);
 
   // Continuous background status polling (syncs server-side telemetry probes to all views)
+  const isTelemetryUpdateRef = useRef(false);
+
   useEffect(() => {
     let isMounted = true;
     const interval = setInterval(async () => {
       if (!isMounted) return;
       try {
-        const res = await fetch('/api/snmp/status');
+        const res = await fetch('/api/snmp/status', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         if (data.success && isMounted) {
@@ -558,6 +472,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (Array.isArray(data.ips) && data.ips.length > 0) {
             const statusMap = new Map(data.ips.map((item: any) => [item.id, item]));
+            isTelemetryUpdateRef.current = true;
             setIps((prev) => {
               let hasChanged = false;
               const next = prev.map((rec) => {
@@ -578,6 +493,9 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 return rec;
               });
+              if (!hasChanged) {
+                isTelemetryUpdateRef.current = false;
+              }
               return hasChanged ? next : prev;
             });
           }
@@ -617,8 +535,35 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
+  const syncImmediate = useCallback(
+    (payload: Partial<{
+      subnets: Subnet[];
+      ips: IPRecord[];
+      users: User[];
+      ldapConfig: LdapConfig;
+      auditLogs: AuditLog[];
+      deviceClassifications: DeviceClassification[];
+      auditSettings: AuditSettings;
+    }>) => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      return fetch('/api/ipam/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch((err) => {
+        console.error('[IPAM] Direct server synchronization failed:', err);
+      });
+    },
+    []
+  );
+
   useEffect(() => {
     if (!isInitialLoadDoneRef.current) {
+      return;
+    }
+    // Prevent telemetry polling from triggering full database sync back to server
+    if (isTelemetryUpdateRef.current) {
+      isTelemetryUpdateRef.current = false;
       return;
     }
     syncToServer({ subnets, ips, users, ldapConfig, auditLogs, deviceClassifications, auditSettings });
@@ -863,6 +808,21 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loggedUser: User = data.user;
         setCurrentUser(loggedUser);
         setUsers((prev) => prev.map((u) => (u.id === loggedUser.id ? loggedUser : u)));
+        clearInactivityMessage();
+
+        try {
+          localStorage.setItem(SESSION_USER_KEY, loggedUser.id);
+          if (data.serverBootId) {
+            localStorage.setItem(SESSION_BOOT_KEY, data.serverBootId);
+          }
+          localStorage.setItem(SESSION_ACTIVITY_KEY, String(Date.now()));
+        } catch {}
+
+        lastActivityTimeRef.current = Date.now();
+        lastSavedActivityRef.current = Date.now();
+
+        setActiveTab('dashboard');
+        setSelectedSubnetId(null);
 
         logAudit(
           'AUTH_LOGIN',
@@ -911,13 +871,14 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'info'
       );
     }
+    clearStoredSession();
     setCurrentUser(null);
   };
 
   // 15-Minute Inactivity Auto-Logout Tracker
   const [inactivityMessage, setInactivityMessage] = useState<string | null>(null);
   const lastActivityTimeRef = useRef<number>(Date.now());
-  const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+  const lastSavedActivityRef = useRef<number>(Date.now());
 
   const clearInactivityMessage = () => {
     setInactivityMessage(null);
@@ -926,11 +887,37 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser) return;
 
-    // Initialize activity timestamp when user is logged in
+    // Check if previous session was already idle for 15 minutes
+    const storedActivity = localStorage.getItem(SESSION_ACTIVITY_KEY);
+    const prevTimestamp = storedActivity ? parseInt(storedActivity, 10) : Date.now();
+    if (Date.now() - prevTimestamp >= IDLE_TIMEOUT_MS) {
+      logAudit(
+        'AUTH_TIMEOUT',
+        'auth',
+        currentUser.username,
+        `Session terminated automatically due to 15 minutes of inactivity.`,
+        'warning'
+      );
+      clearStoredSession();
+      setCurrentUser(null);
+      setInactivityMessage('Your session has expired due to 15 minutes of inactivity. Please sign in again.');
+      return;
+    }
+
+    // Initialize activity timestamp when user is active
     lastActivityTimeRef.current = Date.now();
+    lastSavedActivityRef.current = Date.now();
 
     const recordActivity = () => {
-      lastActivityTimeRef.current = Date.now();
+      const now = Date.now();
+      lastActivityTimeRef.current = now;
+      // Throttled update to localStorage (at most once every 10 seconds to avoid CPU work)
+      if (now - lastSavedActivityRef.current > 10000) {
+        lastSavedActivityRef.current = now;
+        try {
+          localStorage.setItem(SESSION_ACTIVITY_KEY, String(now));
+        } catch {}
+      }
     };
 
     const activityEvents = [
@@ -947,7 +934,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.addEventListener(evt, recordActivity, { passive: true })
     );
 
-    const intervalId = setInterval(() => {
+    const checkIdleTimeout = () => {
       const idleTime = Date.now() - lastActivityTimeRef.current;
       if (idleTime >= IDLE_TIMEOUT_MS) {
         logAudit(
@@ -957,17 +944,28 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
           `Session terminated automatically due to 15 minutes of inactivity.`,
           'warning'
         );
+        clearStoredSession();
         setCurrentUser(null);
         setInactivityMessage(
           'Your session has expired due to 15 minutes of inactivity. Please sign in again.'
         );
       }
-    }, 5000);
+    };
+
+    const intervalId = setInterval(checkIdleTimeout, 5000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkIdleTimeout();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       activityEvents.forEach((evt) =>
         window.removeEventListener(evt, recordActivity)
       );
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(intervalId);
     };
   }, [currentUser]);
@@ -976,6 +974,15 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const target = users.find((u) => u.id === userId);
     if (target) {
       setCurrentUser(target);
+      clearInactivityMessage();
+      try {
+        localStorage.setItem(SESSION_USER_KEY, target.id);
+        localStorage.setItem(SESSION_ACTIVITY_KEY, String(Date.now()));
+      } catch {}
+      lastActivityTimeRef.current = Date.now();
+      lastSavedActivityRef.current = Date.now();
+      setActiveTab('dashboard');
+      setSelectedSubnetId(null);
       logAudit(
         'USER_SWITCH',
         'auth',
@@ -1005,7 +1012,11 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       permissions: userData.permissions || { ...(DEFAULT_PERMISSIONS[userData.role] || DEFAULT_PERMISSIONS.operator) },
     };
 
-    setUsers((prev) => [...prev, newUser]);
+    setUsers((prev) => {
+      const next = [...prev, newUser];
+      syncImmediate({ users: next });
+      return next;
+    });
     logAudit(
       'USER_CREATE',
       'user',
@@ -1035,9 +1046,11 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, ...updates } : u))
-    );
+    setUsers((prev) => {
+      const next = prev.map((u) => (u.id === id ? { ...u, ...updates } : u));
+      syncImmediate({ users: next });
+      return next;
+    });
 
     if (currentUser?.id === id) {
       setCurrentUser((prev) => (prev ? { ...prev, ...updates } : null));
@@ -1076,7 +1089,11 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const updatedUser: User = { ...user, localPassword: newPassword };
-    setUsers((prev) => prev.map((u) => (u.id === userId ? updatedUser : u)));
+    setUsers((prev) => {
+      const next = prev.map((u) => (u.id === userId ? updatedUser : u));
+      syncImmediate({ users: next });
+      return next;
+    });
     if (currentUser?.id === userId) {
       setCurrentUser(updatedUser);
     }
@@ -1117,7 +1134,11 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    setUsers((prev) => {
+      const next = prev.filter((u) => u.id !== id);
+      syncImmediate({ users: next });
+      return next;
+    });
     logAudit(
       'USER_DELETE',
       'user',
@@ -1945,7 +1966,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createBackupPackage = (includeAuditLogs: boolean = true): IPAMBackupData => {
     return {
-      version: '1.4.0',
+      version: '2.0.0',
       timestamp: new Date().toISOString(),
       exportedBy: {
         username: currentUser?.username || 'system',
@@ -1960,6 +1981,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
         totalDeviceClassifications: deviceClassifications.length,
         totalAuditLogs: includeAuditLogs ? auditLogs.length : 0,
         ldapConfigured: ldapConfig.enabled,
+        hasSnmpConfig: true,
       },
       data: {
         subnets: JSON.parse(JSON.stringify(subnets)),
@@ -1969,6 +1991,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deviceClassifications: JSON.parse(JSON.stringify(deviceClassifications)),
         auditLogs: includeAuditLogs ? JSON.parse(JSON.stringify(auditLogs)) : [],
         auditSettings: JSON.parse(JSON.stringify(auditSettings)),
+        snmpConfig: JSON.parse(JSON.stringify(snmpConfig)),
       },
     };
   };
@@ -2028,6 +2051,7 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       restoreDeviceClasses = true,
       restoreAuditLogs = true,
       restoreAuditSettings = true,
+      restoreSnmpConfig = true,
       mode = 'overwrite',
     } = options;
 
@@ -2037,53 +2061,62 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let deviceClassesRestored = 0;
     let auditLogsRestored = 0;
 
+    let nextSubnets = subnets;
+    let nextIps = ips;
+    let nextUsers = users;
+    let nextLdapConfig = ldapConfig;
+    let nextAuditLogs = auditLogs;
+    let nextAuditSettings = auditSettings;
+    let nextDeviceClassifications = deviceClassifications;
+
     // 1. Subnets
     if (restoreSubnets && Array.isArray(backup.data.subnets)) {
       if (mode === 'overwrite') {
+        nextSubnets = backup.data.subnets;
         setSubnets(backup.data.subnets);
         subnetsRestored = backup.data.subnets.length;
       } else {
-        setSubnets((prev) => {
-          const merged = [...prev];
-          backup.data.subnets.forEach((s) => {
-            const idx = merged.findIndex((x) => x.id === s.id || x.cidr === s.cidr);
-            if (idx >= 0) {
-              merged[idx] = s;
-            } else {
-              merged.push(s);
-            }
-          });
-          subnetsRestored = backup.data.subnets.length;
-          return merged;
+        const merged = [...subnets];
+        backup.data.subnets.forEach((s) => {
+          const idx = merged.findIndex((x) => x.id === s.id || x.cidr === s.cidr);
+          if (idx >= 0) {
+            merged[idx] = s;
+          } else {
+            merged.push(s);
+          }
         });
+        nextSubnets = merged;
+        setSubnets(merged);
+        subnetsRestored = backup.data.subnets.length;
       }
     }
 
     // 2. IPs
     if (restoreIPs && Array.isArray(backup.data.ips)) {
       if (mode === 'overwrite') {
+        nextIps = backup.data.ips;
         setIps(backup.data.ips);
         ipsRestored = backup.data.ips.length;
       } else {
-        setIps((prev) => {
-          const merged = [...prev];
-          backup.data.ips.forEach((ipRec) => {
-            const idx = merged.findIndex((x) => x.subnetId === ipRec.subnetId && x.ip === ipRec.ip);
-            if (idx >= 0) {
-              merged[idx] = ipRec;
-            } else {
-              merged.push(ipRec);
-            }
-          });
-          ipsRestored = backup.data.ips.length;
-          return merged;
+        const merged = [...ips];
+        backup.data.ips.forEach((ipRec) => {
+          const idx = merged.findIndex((x) => x.subnetId === ipRec.subnetId && x.ip === ipRec.ip);
+          if (idx >= 0) {
+            merged[idx] = ipRec;
+          } else {
+            merged.push(ipRec);
+          }
         });
+        nextIps = merged;
+        setIps(merged);
+        ipsRestored = backup.data.ips.length;
       }
     }
 
     // 3. Users
     if (restoreUsers && Array.isArray(backup.data.users) && backup.data.users.length > 0) {
       if (mode === 'overwrite') {
+        nextUsers = backup.data.users;
         setUsers(backup.data.users);
         const stillExists = backup.data.users.find((u) => u.id === currentUser?.id);
         if (!stillExists) {
@@ -2091,68 +2124,123 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         usersRestored = backup.data.users.length;
       } else {
-        setUsers((prev) => {
-          const merged = [...prev];
-          backup.data.users.forEach((u) => {
-            const idx = merged.findIndex((x) => x.id === u.id || x.username === u.username);
-            if (idx >= 0) {
-              merged[idx] = u;
-            } else {
-              merged.push(u);
-            }
-          });
-          usersRestored = backup.data.users.length;
-          return merged;
+        const merged = [...users];
+        backup.data.users.forEach((u) => {
+          const idx = merged.findIndex((x) => x.id === u.id || x.username === u.username);
+          if (idx >= 0) {
+            merged[idx] = u;
+          } else {
+            merged.push(u);
+          }
         });
+        nextUsers = merged;
+        setUsers(merged);
+        usersRestored = backup.data.users.length;
       }
     }
 
     // 4. LDAP Settings
     if (restoreLdap && backup.data.ldapConfig) {
+      nextLdapConfig = backup.data.ldapConfig;
       setLdapConfig(backup.data.ldapConfig);
     }
 
-    // 5. Device Classifications
-    if (restoreDeviceClasses && Array.isArray(backup.data.deviceClassifications)) {
-      if (mode === 'overwrite') {
-        setDeviceClassifications(backup.data.deviceClassifications);
-        deviceClassesRestored = backup.data.deviceClassifications.length;
-      } else {
-        setDeviceClassifications((prev) => {
-          const merged = [...prev];
-          backup.data.deviceClassifications.forEach((d) => {
-            const idx = merged.findIndex((x) => x.id === d.id || x.code === d.code || x.name === d.name);
+    // 5. Device Classifications (Hardened)
+    if (restoreDeviceClasses) {
+      const incomingClasses = Array.isArray(backup.data.deviceClassifications)
+        ? backup.data.deviceClassifications
+        : [];
+
+      // Validate and sanitize incoming classifications
+      const sanitizedIncoming: DeviceClassification[] = incomingClasses
+        .filter((d: any) => d && typeof d === 'object' && (d.name || d.code))
+        .map((d: any) => ({
+          id: d.id || `devclass-${(d.code || d.name || 'custom').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          name: d.name || 'Unnamed Classification',
+          code: (d.code || d.name || 'custom').toLowerCase().trim(),
+          category: d.category || 'Custom Appliance',
+          description: d.description || '',
+          icon: d.icon || 'server',
+          color: d.color || 'blue',
+          vendor: d.vendor || '',
+          defaultPorts: d.defaultPorts || '',
+          snmpEnabled: d.snmpEnabled !== false,
+          createdAt: d.createdAt || new Date().toISOString(),
+          updatedAt: d.updatedAt || new Date().toISOString(),
+        }));
+
+      if (sanitizedIncoming.length > 0) {
+        if (mode === 'overwrite') {
+          nextDeviceClassifications = sanitizedIncoming;
+          setDeviceClassifications(sanitizedIncoming);
+          deviceClassesRestored = sanitizedIncoming.length;
+        } else {
+          const merged = [...deviceClassifications];
+          sanitizedIncoming.forEach((d) => {
+            const idx = merged.findIndex(
+              (x) => x.id === d.id || x.code.toLowerCase() === d.code.toLowerCase() || x.name.toLowerCase() === d.name.toLowerCase()
+            );
             if (idx >= 0) {
-              merged[idx] = d;
+              merged[idx] = { ...merged[idx], ...d };
             } else {
               merged.push(d);
             }
           });
-          deviceClassesRestored = backup.data.deviceClassifications.length;
-          return merged;
-        });
+          nextDeviceClassifications = merged;
+          setDeviceClassifications(merged);
+          deviceClassesRestored = sanitizedIncoming.length;
+        }
+      } else if (deviceClassifications.length === 0) {
+        // Fallback to initial classifications if current state is empty
+        nextDeviceClassifications = INITIAL_DEVICE_CLASSIFICATIONS;
+        setDeviceClassifications(INITIAL_DEVICE_CLASSIFICATIONS);
+        deviceClassesRestored = INITIAL_DEVICE_CLASSIFICATIONS.length;
       }
     }
 
     // 6. Audit Settings
     if (restoreAuditSettings && backup.data.auditSettings) {
+      nextAuditSettings = backup.data.auditSettings;
       setAuditSettings(backup.data.auditSettings);
     }
 
-    // 7. Audit Logs
+    // 7. SNMP Config
+    if (restoreSnmpConfig && backup.data.snmpConfig) {
+      setSnmpConfig((prev) => {
+        const merged = { ...prev, ...backup.data.snmpConfig };
+        try {
+          localStorage.setItem('ipam_snmp_monitoring_config', JSON.stringify(merged));
+        } catch (e) {}
+        return merged;
+      });
+    }
+
+    // 8. Audit Logs
     if (restoreAuditLogs && Array.isArray(backup.data.auditLogs) && backup.data.auditLogs.length > 0) {
       if (mode === 'overwrite') {
+        nextAuditLogs = backup.data.auditLogs;
         setAuditLogs(backup.data.auditLogs);
         auditLogsRestored = backup.data.auditLogs.length;
       } else {
-        setAuditLogs((prev) => {
-          const ids = new Set(prev.map((l) => l.id));
-          const newEntries = backup.data.auditLogs.filter((l) => !ids.has(l.id));
-          auditLogsRestored = newEntries.length;
-          return [...newEntries, ...prev];
-        });
+        const ids = new Set(auditLogs.map((l) => l.id));
+        const newEntries = backup.data.auditLogs.filter((l) => !ids.has(l.id));
+        auditLogsRestored = newEntries.length;
+        const merged = [...newEntries, ...auditLogs];
+        nextAuditLogs = merged;
+        setAuditLogs(merged);
       }
     }
+
+    // Immediately push to backend API so disk database and PostgreSQL are updated synchronously
+    syncToServer({
+      subnets: nextSubnets,
+      ips: nextIps,
+      users: nextUsers,
+      ldapConfig: nextLdapConfig,
+      auditLogs: nextAuditLogs,
+      deviceClassifications: nextDeviceClassifications,
+      auditSettings: nextAuditSettings,
+    });
 
     const summaryMsg = `Restored ${subnetsRestored} subnets, ${ipsRestored} IPs, ${usersRestored} users, ${deviceClassesRestored} device classes from backup package`;
     logAudit(

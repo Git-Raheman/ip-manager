@@ -110,9 +110,29 @@ function normalizeState(data: IPAMDatabase): IPAMDatabase {
       return userList;
     })(),
     auditLogs: Array.isArray(state.auditLogs) ? state.auditLogs : [],
-    deviceClassifications: Array.isArray(state.deviceClassifications)
-      ? state.deviceClassifications
-      : [],
+    deviceClassifications: (() => {
+      let list = Array.isArray(state.deviceClassifications) ? [...state.deviceClassifications] : [];
+      // Ensure baseline classifications exist so user always has standard profiles (including CCTV, Server, Router, etc.)
+      for (const baseline of INITIAL_DEVICE_CLASSIFICATIONS) {
+        if (!list.some((existing: any) => existing.code?.toLowerCase() === baseline.code.toLowerCase() || existing.id === baseline.id)) {
+          list.push(baseline);
+        }
+      }
+      return list.map((dc: any) => ({
+        id: typeof dc?.id === 'string' ? dc.id : `devclass-${(dc?.code || 'custom').toLowerCase()}`,
+        name: typeof dc?.name === 'string' ? dc.name : 'Unnamed Classification',
+        code: typeof dc?.code === 'string' ? dc.code : 'custom',
+        category: typeof dc?.category === 'string' ? dc.category : 'Custom Appliance',
+        description: typeof dc?.description === 'string' ? dc.description : '',
+        icon: typeof dc?.icon === 'string' ? dc.icon : 'server',
+        color: typeof dc?.color === 'string' ? dc.color : 'blue',
+        vendor: typeof dc?.vendor === 'string' ? dc.vendor : '',
+        defaultPorts: typeof dc?.defaultPorts === 'string' ? dc.defaultPorts : '',
+        snmpEnabled: dc?.snmpEnabled !== false,
+        createdAt: dc?.createdAt || new Date().toISOString(),
+        updatedAt: dc?.updatedAt || new Date().toISOString(),
+      }));
+    })(),
     snmpConfig: state.snmpConfig && typeof state.snmpConfig === 'object'
       ? { ...INITIAL_SNMP_CONFIG, ...state.snmpConfig }
       : INITIAL_SNMP_CONFIG,

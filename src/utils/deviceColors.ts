@@ -1,0 +1,250 @@
+export interface ClassificationColorTheme {
+  id: string;
+  label: string;
+  swatch: string; // Solid color for picker button circle
+  dot: string; // Indicator dot class
+  text: string; // Text color with high contrast on light & dark
+  bg: string; // Soft background for light & dark
+  border: string; // Border for light & dark
+  badge: string; // Pill badge style for light & dark
+  heatmapBg: string; // Subnet heatmap cell style
+}
+
+export const AVAILABLE_COLORS: ClassificationColorTheme[] = [
+  {
+    id: 'blue',
+    label: 'Blue',
+    swatch: 'bg-blue-500',
+    dot: 'bg-blue-500 dark:bg-blue-400',
+    text: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-500/10',
+    border: 'border-blue-200 dark:border-blue-500/40',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800',
+    heatmapBg: 'bg-blue-600 text-white hover:bg-blue-500 border-blue-400/50',
+  },
+  {
+    id: 'indigo',
+    label: 'Indigo',
+    swatch: 'bg-indigo-500',
+    dot: 'bg-indigo-500 dark:bg-indigo-400',
+    text: 'text-indigo-600 dark:text-indigo-400',
+    bg: 'bg-indigo-50 dark:bg-indigo-500/10',
+    border: 'border-indigo-200 dark:border-indigo-500/40',
+    badge: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/80 dark:text-indigo-300 dark:border-indigo-800',
+    heatmapBg: 'bg-indigo-600 text-white hover:bg-indigo-500 border-indigo-400/50',
+  },
+  {
+    id: 'violet',
+    label: 'Violet',
+    swatch: 'bg-violet-500',
+    dot: 'bg-violet-500 dark:bg-violet-400',
+    text: 'text-violet-600 dark:text-violet-400',
+    bg: 'bg-violet-50 dark:bg-violet-500/10',
+    border: 'border-violet-200 dark:border-violet-500/40',
+    badge: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/80 dark:text-violet-300 dark:border-violet-800',
+    heatmapBg: 'bg-violet-600 text-white hover:bg-violet-500 border-violet-400/50',
+  },
+  {
+    id: 'purple',
+    label: 'Purple',
+    swatch: 'bg-purple-500',
+    dot: 'bg-purple-500 dark:bg-purple-400',
+    text: 'text-purple-600 dark:text-purple-400',
+    bg: 'bg-purple-50 dark:bg-purple-500/10',
+    border: 'border-purple-200 dark:border-purple-500/40',
+    badge: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800',
+    heatmapBg: 'bg-purple-600 text-white hover:bg-purple-500 border-purple-400/50',
+  },
+  {
+    id: 'fuchsia',
+    label: 'Fuchsia',
+    swatch: 'bg-fuchsia-500',
+    dot: 'bg-fuchsia-500 dark:bg-fuchsia-400',
+    text: 'text-fuchsia-600 dark:text-fuchsia-400',
+    bg: 'bg-fuchsia-50 dark:bg-fuchsia-500/10',
+    border: 'border-fuchsia-200 dark:border-fuchsia-500/40',
+    badge: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/80 dark:text-fuchsia-300 dark:border-fuchsia-800',
+    heatmapBg: 'bg-fuchsia-600 text-white hover:bg-fuchsia-500 border-fuchsia-400/50',
+  },
+  {
+    id: 'pink',
+    label: 'Pink',
+    swatch: 'bg-pink-500',
+    dot: 'bg-pink-500 dark:bg-pink-400',
+    text: 'text-pink-600 dark:text-pink-400',
+    bg: 'bg-pink-50 dark:bg-pink-500/10',
+    border: 'border-pink-200 dark:border-pink-500/40',
+    badge: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/80 dark:text-pink-300 dark:border-pink-800',
+    heatmapBg: 'bg-pink-600 text-white hover:bg-pink-500 border-pink-400/50',
+  },
+  {
+    id: 'rose',
+    label: 'Rose',
+    swatch: 'bg-rose-500',
+    dot: 'bg-rose-500 dark:bg-rose-400',
+    text: 'text-rose-600 dark:text-rose-400',
+    bg: 'bg-rose-50 dark:bg-rose-500/10',
+    border: 'border-rose-200 dark:border-rose-500/40',
+    badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800',
+    heatmapBg: 'bg-rose-600 text-white hover:bg-rose-500 border-rose-400/50',
+  },
+  {
+    id: 'red',
+    label: 'Red',
+    swatch: 'bg-red-500',
+    dot: 'bg-red-500 dark:bg-red-400',
+    text: 'text-red-600 dark:text-red-400',
+    bg: 'bg-red-50 dark:bg-red-500/10',
+    border: 'border-red-200 dark:border-red-500/40',
+    badge: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/80 dark:text-red-300 dark:border-red-800',
+    heatmapBg: 'bg-red-600 text-white hover:bg-red-500 border-red-400/50',
+  },
+  {
+    id: 'orange',
+    label: 'Orange',
+    swatch: 'bg-orange-500',
+    dot: 'bg-orange-500 dark:bg-orange-400',
+    text: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-50 dark:bg-orange-500/10',
+    border: 'border-orange-200 dark:border-orange-500/40',
+    badge: 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/80 dark:text-orange-300 dark:border-orange-800',
+    heatmapBg: 'bg-orange-600 text-white hover:bg-orange-500 border-orange-400/50',
+  },
+  {
+    id: 'amber',
+    label: 'Amber',
+    swatch: 'bg-amber-500',
+    dot: 'bg-amber-500 dark:bg-amber-400',
+    text: 'text-amber-700 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-500/10',
+    border: 'border-amber-200 dark:border-amber-500/40',
+    badge: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800',
+    heatmapBg: 'bg-amber-600 text-slate-950 font-bold hover:bg-amber-500 border-amber-400/50',
+  },
+  {
+    id: 'yellow',
+    label: 'Yellow',
+    swatch: 'bg-yellow-500',
+    dot: 'bg-yellow-500 dark:bg-yellow-400',
+    text: 'text-yellow-700 dark:text-yellow-400',
+    bg: 'bg-yellow-50 dark:bg-yellow-500/10',
+    border: 'border-yellow-200 dark:border-yellow-500/40',
+    badge: 'bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/80 dark:text-yellow-300 dark:border-yellow-800',
+    heatmapBg: 'bg-yellow-500 text-slate-950 font-bold hover:bg-yellow-400 border-yellow-400/50',
+  },
+  {
+    id: 'lime',
+    label: 'Lime',
+    swatch: 'bg-lime-500',
+    dot: 'bg-lime-500 dark:bg-lime-400',
+    text: 'text-lime-700 dark:text-lime-400',
+    bg: 'bg-lime-50 dark:bg-lime-500/10',
+    border: 'border-lime-200 dark:border-lime-500/40',
+    badge: 'bg-lime-50 text-lime-800 border-lime-200 dark:bg-lime-950/80 dark:text-lime-300 dark:border-lime-800',
+    heatmapBg: 'bg-lime-600 text-slate-950 font-bold hover:bg-lime-500 border-lime-400/50',
+  },
+  {
+    id: 'green',
+    label: 'Green',
+    swatch: 'bg-green-500',
+    dot: 'bg-green-500 dark:bg-green-400',
+    text: 'text-green-600 dark:text-green-400',
+    bg: 'bg-green-50 dark:bg-green-500/10',
+    border: 'border-green-200 dark:border-green-500/40',
+    badge: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/80 dark:text-green-300 dark:border-green-800',
+    heatmapBg: 'bg-green-600 text-white hover:bg-green-500 border-green-400/50',
+  },
+  {
+    id: 'emerald',
+    label: 'Emerald',
+    swatch: 'bg-emerald-500',
+    dot: 'bg-emerald-500 dark:bg-emerald-400',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+    border: 'border-emerald-200 dark:border-emerald-500/40',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800',
+    heatmapBg: 'bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-400/50',
+  },
+  {
+    id: 'teal',
+    label: 'Teal',
+    swatch: 'bg-teal-500',
+    dot: 'bg-teal-500 dark:bg-teal-400',
+    text: 'text-teal-600 dark:text-teal-400',
+    bg: 'bg-teal-50 dark:bg-teal-500/10',
+    border: 'border-teal-200 dark:border-teal-500/40',
+    badge: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/80 dark:text-teal-300 dark:border-teal-800',
+    heatmapBg: 'bg-teal-600 text-white hover:bg-teal-500 border-teal-400/50',
+  },
+  {
+    id: 'cyan',
+    label: 'Cyan',
+    swatch: 'bg-cyan-500',
+    dot: 'bg-cyan-500 dark:bg-cyan-400',
+    text: 'text-cyan-600 dark:text-cyan-400',
+    bg: 'bg-cyan-50 dark:bg-cyan-500/10',
+    border: 'border-cyan-200 dark:border-cyan-500/40',
+    badge: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/80 dark:text-cyan-300 dark:border-cyan-800',
+    heatmapBg: 'bg-cyan-600 text-white hover:bg-cyan-500 border-cyan-400/50',
+  },
+  {
+    id: 'sky',
+    label: 'Sky',
+    swatch: 'bg-sky-500',
+    dot: 'bg-sky-500 dark:bg-sky-400',
+    text: 'text-sky-600 dark:text-sky-400',
+    bg: 'bg-sky-50 dark:bg-sky-500/10',
+    border: 'border-sky-200 dark:border-sky-500/40',
+    badge: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-800',
+    heatmapBg: 'bg-sky-600 text-white hover:bg-sky-500 border-sky-400/50',
+  },
+  {
+    id: 'slate',
+    label: 'Slate',
+    swatch: 'bg-slate-500',
+    dot: 'bg-slate-500 dark:bg-slate-400',
+    text: 'text-slate-600 dark:text-slate-300',
+    bg: 'bg-slate-100 dark:bg-slate-500/10',
+    border: 'border-slate-300 dark:border-slate-500/40',
+    badge: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    heatmapBg: 'bg-slate-700 text-white hover:bg-slate-600 border-slate-600',
+  },
+  {
+    id: 'zinc',
+    label: 'Zinc',
+    swatch: 'bg-zinc-500',
+    dot: 'bg-zinc-500 dark:bg-zinc-400',
+    text: 'text-zinc-600 dark:text-zinc-300',
+    bg: 'bg-zinc-100 dark:bg-zinc-500/10',
+    border: 'border-zinc-300 dark:border-zinc-500/40',
+    badge: 'bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700',
+    heatmapBg: 'bg-zinc-700 text-white hover:bg-zinc-600 border-zinc-600',
+  },
+  {
+    id: 'stone',
+    label: 'Stone',
+    swatch: 'bg-stone-500',
+    dot: 'bg-stone-500 dark:bg-stone-400',
+    text: 'text-stone-600 dark:text-stone-300',
+    bg: 'bg-stone-100 dark:bg-stone-500/10',
+    border: 'border-stone-300 dark:border-stone-500/40',
+    badge: 'bg-stone-100 text-stone-700 border-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:border-stone-700',
+    heatmapBg: 'bg-stone-700 text-white hover:bg-stone-600 border-stone-600',
+  },
+];
+
+export const CLASSIFICATION_COLOR_MAP: Record<string, ClassificationColorTheme> = AVAILABLE_COLORS.reduce(
+  (acc, item) => {
+    acc[item.id] = item;
+    return acc;
+  },
+  {} as Record<string, ClassificationColorTheme>
+);
+
+export function getColorTheme(colorName?: string): ClassificationColorTheme {
+  if (!colorName) return CLASSIFICATION_COLOR_MAP.blue;
+  const key = colorName.toLowerCase().trim();
+  return CLASSIFICATION_COLOR_MAP[key] || CLASSIFICATION_COLOR_MAP.blue;
+}
+
+export const getClassificationTheme = getColorTheme;
