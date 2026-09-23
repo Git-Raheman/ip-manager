@@ -1303,30 +1303,71 @@ export const IPAMProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Device classification not found' };
     }
 
+    const oldCode = target.code;
+    let codeChanged = false;
+
     if (updates.code) {
       const cleanCode = updates.code.trim().toLowerCase();
-      const duplicate = deviceClassifications.find((dc) => dc.id !== id && dc.code.toLowerCase() === cleanCode);
-      if (duplicate) {
-        return { success: false, message: `Another classification with code '${cleanCode}' already exists.` };
+      if (cleanCode !== oldCode.toLowerCase()) {
+        const duplicate = deviceClassifications.find((dc) => dc.id !== id && dc.code.toLowerCase() === cleanCode);
+        if (duplicate) {
+          return { success: false, message: `Another classification with code '${cleanCode}' already exists.` };
+        }
+        updates.code = cleanCode;
+        codeChanged = true;
+      } else {
+        updates.code = cleanCode;
       }
-      updates.code = cleanCode;
+    }
+
+    // Cascade updated classification code to all matching assigned IP records
+    let updatedIps = ips;
+    let cascadedIpCount = 0;
+
+    if (codeChanged && updates.code) {
+      const newCode = updates.code;
+      updatedIps = ips.map((ip) => {
+        if (ip.deviceType && ip.deviceType.toLowerCase() === oldCode.toLowerCase()) {
+          cascadedIpCount++;
+          return { ...ip, deviceType: newCode };
+        }
+        return ip;
+      });
+
+      if (cascadedIpCount > 0) {
+        setIps(updatedIps);
+      }
     }
 
     const updatedClasses = deviceClassifications.map((dc) =>
       dc.id === id ? { ...dc, ...updates, updatedAt: new Date().toISOString() } : dc
     );
     setDeviceClassifications(updatedClasses);
-    syncImmediate({ deviceClassifications: updatedClasses });
+    syncImmediate({
+      deviceClassifications: updatedClasses,
+      ...(cascadedIpCount > 0 ? { ips: updatedIps } : {}),
+    });
 
     logAudit(
       'DEVICE_CLASS_UPDATE',
       'device',
-      target.name,
-      `Updated device classification '${target.name}' details: ${Object.keys(updates).join(', ')}`,
+      updates.name || target.name,
+      `Updated device classification '${target.name}' details: ${Object.keys(updates).join(', ')}${
+        cascadedIpCount > 0
+          ? `. Migrated ${cascadedIpCount} assigned IP(s) from code '${oldCode}' to '${updates.code}'`
+          : ''
+      }`,
       'info'
     );
 
-    return { success: true, message: `Device classification '${target.name}' updated successfully` };
+    return {
+      success: true,
+      message: `Device classification '${updates.name || target.name}' updated successfully.${
+        cascadedIpCount > 0
+          ? ` Retained and migrated ${cascadedIpCount} assigned IP(s) to new code '${updates.code}'.`
+          : ''
+      }`,
+    };
   };
 
   const deleteDeviceClassification = (id: string): { success: boolean; message: string } => {

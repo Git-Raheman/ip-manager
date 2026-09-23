@@ -388,7 +388,7 @@ export const DeviceClassificationView: React.FC = () => {
         setFormError(result.message);
         return;
       }
-      showToast(`Updated classification '${formData.name}' successfully.`, 'success');
+      showToast(result.message || `Updated classification '${formData.name}' successfully.`, 'success');
     } else {
       const result = createDeviceClassification({
         name: formData.name.trim(),
@@ -1901,9 +1901,18 @@ export const DeviceClassificationView: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, code: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '_') })}
                       className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
                     />
-                    <span className="text-[10px] text-slate-500 mt-1 block">
-                      Internal slug used in IP records and API calls
-                    </span>
+                    {editingClassification && (ipCountsByCode[editingClassification.code] || 0) > 0 && formData.code !== editingClassification.code ? (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1.5 font-medium bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-800/50">
+                        <Info className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          Renaming code from &apos;{editingClassification.code}&apos; to &apos;{formData.code}&apos; will automatically migrate all {ipCountsByCode[editingClassification.code]} assigned IP(s).
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 mt-1 block">
+                        Internal slug used in IP records and API calls
+                      </span>
+                    )}
                   </div>
                 </div>
 

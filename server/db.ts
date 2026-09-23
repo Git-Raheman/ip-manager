@@ -254,6 +254,30 @@ class DatabaseManager {
   }
 
   public updateState(partial: Partial<IPAMDatabase>): IPAMDatabase {
+    // If deviceClassifications are updated, detect any code renames and cascade to ips
+    let ipsToSave = partial.ips || this.memoryCache.ips;
+    if (Array.isArray(partial.deviceClassifications) && Array.isArray(this.memoryCache.deviceClassifications)) {
+      const codeRenames = new Map<string, string>();
+      for (const newDc of partial.deviceClassifications) {
+        if (!newDc || !newDc.id || !newDc.code) continue;
+        const oldDc = this.memoryCache.deviceClassifications.find((dc: any) => dc.id === newDc.id);
+        if (oldDc && oldDc.code && oldDc.code.toLowerCase() !== newDc.code.toLowerCase()) {
+          codeRenames.set(oldDc.code.toLowerCase(), newDc.code.toLowerCase());
+        }
+      }
+
+      if (codeRenames.size > 0 && Array.isArray(ipsToSave)) {
+        ipsToSave = ipsToSave.map((ip: any) => {
+          if (ip && ip.deviceType && codeRenames.has(String(ip.deviceType).toLowerCase())) {
+            const renamed = codeRenames.get(String(ip.deviceType).toLowerCase())!;
+            return { ...ip, deviceType: renamed };
+          }
+          return ip;
+        });
+        partial.ips = ipsToSave;
+      }
+    }
+
     this.memoryCache = normalizeState({
       ...this.memoryCache,
       ...partial,
