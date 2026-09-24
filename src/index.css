@@ -205,3 +205,13 @@ html:not(.dark) select.text-white {
 .geist-btn-secondary:hover {
   background-color: var(--geist-border-soft);
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -76,7 +76,7 @@ async function startServer() {
   });
 
   // Sync client state into database
-  app.post('/api/ipam/sync', (req, res) => {
+  app.post('/api/ipam/sync', async (req, res) => {
     try {
       const payload = req.body || {};
       const currentState = db.getState();
@@ -96,23 +96,36 @@ async function startServer() {
           }
         }
 
-        payload.users = payload.users.map((incomingUser: any) => {
-          const existing = currentState.users.find((u) => u.id === incomingUser.id);
-          const isRoot = incomingUser.username?.toLowerCase() === 'admin' || incomingUser.id === 'usr-admin';
+        const processedUsers = await Promise.all(
+          payload.users.map(async (incomingUser: any) => {
+            const existing = currentState.users.find((u) => u.id === incomingUser.id);
+            const isRoot = incomingUser.username?.toLowerCase() === 'admin' || incomingUser.id === 'usr-admin';
 
-          let processed = { ...incomingUser };
-          if (existing && existing.localPassword && !incomingUser.localPassword) {
-            processed.localPassword = existing.localPassword;
-          }
+            let processed = { ...incomingUser };
 
-          // Enforce root admin invariant
-          if (isRoot) {
-            processed.role = 'super_admin';
-            processed.status = 'active';
-          }
+            // Password handling: preserve existing password if not provided
+            if (existing && existing.localPassword && !incomingUser.localPassword) {
+              processed.localPassword = existing.localPassword;
+            } else if (incomingUser.localPassword && !incomingUser.localPassword.startsWith('$2')) {
+              // Hash plain text password before saving to disk
+              try {
+                processed.localPassword = await hashPassword(incomingUser.localPassword);
+              } catch (e) {
+                // Keep as is if hashing fails
+              }
+            }
 
-          return processed;
-        });
+            // Enforce root admin invariant
+            if (isRoot) {
+              processed.role = 'super_admin';
+              processed.status = 'active';
+            }
+
+            return processed;
+          })
+        );
+
+        payload.users = processedUsers;
       }
 
       const updated = db.updateState(payload);

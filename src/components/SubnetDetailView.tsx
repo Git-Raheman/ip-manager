@@ -53,6 +53,8 @@ import {
   SlidersHorizontal,
   Tag,
   Eye,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { SubnetScannerModal } from './SubnetScannerModal';
 import { SubnetBulkImportModal } from './SubnetBulkImportModal';
@@ -86,6 +88,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
     batchPingIPs,
     hasPermission,
     deviceClassifications,
+    projects,
     isInitialLoadDone,
   } = useIPAM();
 
@@ -95,9 +98,26 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [classificationFilter, setClassificationFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [heatmapColorMode, setHeatmapColorMode] = useState<'status' | 'classification'>('classification');
   const [hoveredIp, setHoveredIp] = useState<string | null>(null);
   const [isProbingSubnet, setIsProbingSubnet] = useState(false);
+
+  // Auto Arrange IP Sorting (In Order / Ascending vs De-order / Descending)
+  const [ipSortOrder, setIpSortOrder] = useState<'asc' | 'desc'>(() => {
+    try {
+      const saved = localStorage.getItem('ipam_subnet_ip_sort_order');
+      return saved === 'desc' ? 'desc' : 'asc';
+    } catch (e) {
+      return 'asc';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ipam_subnet_ip_sort_order', ipSortOrder);
+    } catch (e) {}
+  }, [ipSortOrder]);
 
   // Deletion States
   const [ipToDelete, setIpToDelete] = useState<IPRecord | null>(null);
@@ -115,6 +135,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
     macAddress: string;
     status: IPStatus;
     deviceType: DeviceType;
+    projectId: string;
     owner: string;
     department: string;
     notes: string;
@@ -124,6 +145,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
     macAddress: '',
     status: 'allocated',
     deviceType: deviceClassifications[0]?.code || 'server',
+    projectId: '',
     owner: '',
     department: '',
     notes: '',
@@ -422,6 +444,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
       macAddress: '',
       status: 'allocated',
       deviceType: deviceClassifications[0]?.code || 'server',
+      projectId: '',
       owner: currentUser?.fullName || '',
       department: currentUser?.department || '',
       notes: '',
@@ -440,6 +463,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
       macAddress: record.macAddress || '',
       status: record.status,
       deviceType: record.deviceType || deviceClassifications[0]?.code || 'server',
+      projectId: record.projectId || '',
       owner: record.owner || '',
       department: record.department || '',
       notes: record.notes || '',
@@ -495,6 +519,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
         macAddress: formData.macAddress.trim(),
         status: formData.status,
         deviceType: formData.deviceType,
+        projectId: formData.projectId ? formData.projectId : undefined,
         owner: formData.owner.trim(),
         department: formData.department.trim(),
         notes: formData.notes.trim(),
@@ -511,6 +536,7 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
         macAddress: formData.macAddress.trim(),
         status: formData.status,
         deviceType: formData.deviceType,
+        projectId: formData.projectId ? formData.projectId : undefined,
         owner: formData.owner.trim(),
         department: formData.department.trim(),
         notes: formData.notes.trim(),
@@ -535,17 +561,49 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(50);
 
-  // Filtered IP table with Status + Device Classification filters
+  // Filtered & Sorted IP table with Status + Device Classification filters + Auto Arrange
   const filteredTableIps = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return subnetIps.filter((rec) => {
-      const matchSearch =
-        !q ||
-        rec.ip.includes(q) ||
-        (rec.hostname && rec.hostname.toLowerCase().includes(q)) ||
-        (rec.macAddress && rec.macAddress.toLowerCase().includes(q)) ||
-        (rec.owner && rec.owner.toLowerCase().includes(q)) ||
-        (rec.notes && rec.notes.toLowerCase().includes(q));
+    const rawQ = searchQuery.toLowerCase().trim();
+    const normalizedQ = rawQ
+      .replace(/\b(?:notes|note|description|desc)\s*:\s*/gi, 'notes ')
+      .replace(/\b(?:ports|port)\s*:\s*/gi, 'port ');
+    const tokens = normalizedQ.split(/\s+/).filter(Boolean);
+
+    const result = subnetIps.filter((rec) => {
+      const dc = getClassificationInfo(rec.deviceType);
+      const hasNotes = Boolean(rec.notes && rec.notes.trim());
+      const hasPorts = Boolean(dc?.defaultPorts);
+      const notesHasPort = Boolean(rec.notes && /(?:port|ports|:\s*\d{2,5}|\b\d{2,5}\/(?:tcp|udp))\b/i.test(rec.notes));
+
+      let matchSearch = true;
+      const prj = projects.find((p) => p.id === rec.projectId);
+
+      if (tokens.length > 0) {
+        const combined = [
+          rec.ip,
+          rec.hostname,
+          rec.macAddress,
+          rec.owner,
+          rec.department,
+          rec.notes,
+          hasNotes ? 'notes note documented' : '',
+          rec.status,
+          rec.deviceType,
+          dc?.name,
+          dc?.category,
+          dc?.vendor,
+          dc?.defaultPorts,
+          prj?.name,
+          prj?.code,
+          prj?.category,
+          hasPorts || notesHasPort ? `port ports defaultports ${dc?.defaultPorts || ''}` : '',
+        ]
+          .filter(Boolean)
+          .map((f) => String(f).toLowerCase())
+          .join(' ');
+
+        matchSearch = tokens.every((tok) => combined.includes(tok));
+      }
 
       const matchStatus = statusFilter === 'all' || rec.status === statusFilter;
 
@@ -559,9 +617,25 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
         }
       }
 
-      return matchSearch && matchStatus && matchClassification;
+      let matchProject = true;
+      if (projectFilter !== 'all') {
+        if (projectFilter === 'unassigned') {
+          matchProject = !rec.projectId;
+        } else {
+          matchProject = rec.projectId === projectFilter;
+        }
+      }
+
+      return matchSearch && matchStatus && matchClassification && matchProject;
     });
-  }, [subnetIps, searchQuery, statusFilter, classificationFilter, deviceClassifications]);
+
+    // Auto arrange IP in order (Ascending) or de-order (Descending)
+    return result.sort((a, b) => {
+      const numA = ipToLong(a.ip);
+      const numB = ipToLong(b.ip);
+      return ipSortOrder === 'asc' ? numA - numB : numB - numA;
+    });
+  }, [subnetIps, searchQuery, statusFilter, classificationFilter, projectFilter, deviceClassifications, projects, ipSortOrder]);
 
   const totalTablePages = Math.ceil(filteredTableIps.length / tablePageSize) || 1;
   const pagedTableIps = useMemo(() => {
@@ -572,7 +646,12 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
   // Export to CSV
   const handleExportCSV = () => {
     const headers = ['IP Address', 'Status', 'Hostname', 'MAC Address', 'Device Type', 'Classification Name', 'Owner', 'Department', 'Notes'];
-    const rows = subnetIps.map((i) => {
+    const sorted = [...subnetIps].sort((a, b) => {
+      const numA = ipToLong(a.ip);
+      const numB = ipToLong(b.ip);
+      return ipSortOrder === 'asc' ? numA - numB : numB - numA;
+    });
+    const rows = sorted.map((i) => {
       const dc = getClassificationInfo(i.deviceType);
       return [
         i.ip,
@@ -1176,6 +1255,30 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
               </select>
             </div>
 
+            {/* Project Filter */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">Project:</span>
+              <select
+                value={projectFilter}
+                onChange={(e) => {
+                  setProjectFilter(e.target.value);
+                  setTablePage(1);
+                }}
+                className="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+              >
+                <option value="all">All Projects</option>
+                {projects.map((p) => {
+                  const count = subnetIps.filter((i) => i.projectId === p.id).length;
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({count})
+                    </option>
+                  );
+                })}
+                <option value="unassigned">No Project</option>
+              </select>
+            </div>
+
             {/* Check Subnet Health Button */}
             <button
               type="button"
@@ -1205,7 +1308,23 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
             <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
               <thead className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                 <tr>
-                  <th className="py-3.5 px-4 min-w-[160px]">IP Address</th>
+                  <th
+                    className="py-3.5 px-4 min-w-[160px] cursor-pointer select-none group hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    onClick={() => {
+                      setIpSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+                      setTablePage(1);
+                    }}
+                    title={`Click to sort IPs (${ipSortOrder === 'asc' ? 'Ascending / Low to High' : 'Descending / High to Low'})`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>IP Address</span>
+                      {ipSortOrder === 'asc' ? (
+                        <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      ) : (
+                        <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3.5 px-4 min-w-[110px]">Status</th>
                   <th className="py-3.5 px-4 min-w-[220px]">Device &amp; Hostname</th>
                   <th className="py-3.5 px-4 min-w-[150px]">MAC Address</th>
@@ -1279,6 +1398,20 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
                                     {rec.deviceType}
                                   </span>
                                 ) : null}
+                                {(() => {
+                                  const prj = projects.find((p) => p.id === rec.projectId);
+                                  if (!prj) return null;
+                                  const prjTheme = getClassificationTheme(prj.color);
+                                  return (
+                                    <span
+                                      className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1.5 font-semibold shadow-2xs ${prjTheme.badge}`}
+                                      title={`Project: ${prj.name} (${prj.code})`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${prjTheme.dot}`} />
+                                      <span>{prj.code}</span>
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               {rec.notes && <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-xs mt-0.5">{rec.notes}</p>}
                             </div>
@@ -1545,12 +1678,43 @@ export const SubnetDetailView: React.FC<SubnetDetailViewProps> = ({
                 </div>
 
                 <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Project Workload
+                  </label>
+                  <select
+                    value={formData.projectId}
+                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">No Project (Unassigned Workload)</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.code}) — [{p.category}]
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Owner / Assignee</label>
                   <input
                     type="text"
                     value={formData.owner}
                     onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                     placeholder="e.g. Platform Team"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    placeholder="e.g. IT Operations"
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>

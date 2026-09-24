@@ -7,6 +7,7 @@ import {
   Users,
   Server,
   Layers,
+  FolderGit2,
   FileText,
   LogOut,
   LogIn,
@@ -16,6 +17,8 @@ import {
   KeyRound,
   Sun,
   Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -36,11 +39,19 @@ export const Navbar: React.FC<NavbarProps> = ({
     subnets,
     ldapConfig,
     deviceClassifications,
+    projects,
   } = useIPAM();
 
   const { theme, toggleTheme } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Auto-close mobile menu on tab change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [activeTab]);
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -48,30 +59,33 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('#btn-mobile-menu-toggle')
+      ) {
+        setMobileMenuOpen(false);
+      }
     };
 
-    if (userMenuOpen) {
+    if (userMenuOpen || mobileMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, mobileMenuOpen]);
 
-  // Granular Tab Permissions based on RBAC matrix & explicitly assigned user permissions
+  // Granular Tab Permissions based on AWS IAM style policies & explicitly assigned user permissions
   const isSuperAdmin = currentUser?.role === 'super_admin';
+  const canSeeDashboard = Boolean(isSuperAdmin || currentUser?.permissions?.viewDashboard !== false);
+  const canSeeSubnets = Boolean(isSuperAdmin || currentUser?.permissions?.viewSubnets !== false);
   const canSeeUsers = Boolean(isSuperAdmin || currentUser?.permissions?.manageUsers);
   const canSeeLdap = Boolean(isSuperAdmin || currentUser?.permissions?.manageAuthSettings);
-  const canSeeDeviceTypes = Boolean(
-    isSuperAdmin ||
-      (currentUser?.permissions?.manageDeviceClassifications && currentUser?.role !== 'auditor') ||
-      (currentUser?.role === 'network_admin' && currentUser?.permissions?.manageDeviceClassifications !== false)
-  );
-  const canSeeAudit = Boolean(
-    isSuperAdmin ||
-      currentUser?.permissions?.viewAuditLogs
-  );
-  const canSeeBackup = Boolean(isSuperAdmin);
+  const canSeeDeviceTypes = Boolean(isSuperAdmin || currentUser?.permissions?.manageDeviceClassifications);
+  const canSeeProjects = Boolean(isSuperAdmin || currentUser?.permissions?.manageProjects);
+  const canSeeAudit = Boolean(isSuperAdmin || currentUser?.permissions?.viewAuditLogs);
+  const canSeeBackup = Boolean(isSuperAdmin || currentUser?.permissions?.manageBackupRestore);
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -111,73 +125,77 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentUser.permissions.allowedSubnetIds.length > 0;
 
   return (
-    <header className="sticky top-0 z-40 bg-[#fafafa]/90 dark:bg-[#000000]/90 backdrop-blur-md border-b border-[#ebebeb] dark:border-[#262626] text-[#171717] dark:text-[#ededed] shadow-xs transition-colors">
-      <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
-          {/* Brand Logo & Name (Geist Developer Platform Styling) */}
+    <header className="sticky top-0 z-50 bg-[#fafafa]/95 dark:bg-[#000000]/95 backdrop-blur-md border-b border-[#ebebeb] dark:border-[#262626] text-[#171717] dark:text-[#ededed] shadow-xs transition-colors">
+      <div className="w-full max-w-[1720px] mx-auto px-3 sm:px-5 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3 min-w-0">
+          {/* Brand Logo & Name */}
           <div
             onClick={() => {
               setActiveTab('dashboard');
               setSelectedSubnetId(null);
             }}
-            className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
+            className="flex items-center gap-2 sm:gap-2.5 shrink-0 cursor-pointer group select-none"
           >
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform bg-black shrink-0">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform bg-black shrink-0">
               <img src="/icon.png" alt="IP Manager Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="font-semibold text-base tracking-tight text-[#171717] dark:text-[#ededed] whitespace-nowrap group-hover:opacity-80 transition-opacity">
+            <span className="font-semibold text-sm sm:text-base tracking-tight text-[#171717] dark:text-[#ededed] whitespace-nowrap group-hover:opacity-80 transition-opacity">
               IP Manager
             </span>
           </div>
 
-          {/* Center Navigation Tabs */}
-          <nav className="hidden lg:flex items-center gap-1 bg-[#f4f4f5] dark:bg-[#111111] p-1 rounded-xl border border-[#ebebeb] dark:border-[#262626] shadow-xs">
-            <button
-              id="nav-tab-dashboard"
-              onClick={() => {
-                setActiveTab('dashboard');
-                setSelectedSubnetId(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
-                activeTab === 'dashboard'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
-                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
-              <span>Dashboard</span>
-            </button>
-
-            <button
-              id="nav-tab-subnets"
-              onClick={() => {
-                setActiveTab('subnets');
-                setSelectedSubnetId(null);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
-                activeTab === 'subnets'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
-                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
-            >
-              <Network className="w-3.5 h-3.5 shrink-0" />
-              <span>Subnets &amp; IPs</span>
-              <span
-                className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
-                  activeTab === 'subnets'
-                    ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
-                    : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+          {/* Center Navigation Tabs: Auto-adjusting for Desktop, Laptop & Tablet */}
+          <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 bg-[#f4f4f5] dark:bg-[#111111] p-1 rounded-xl border border-[#ebebeb] dark:border-[#262626] shadow-xs overflow-x-auto scrollbar-none min-w-0 max-w-full">
+            {canSeeDashboard && (
+              <button
+                id="nav-tab-dashboard"
+                onClick={() => {
+                  setActiveTab('dashboard');
+                  setSelectedSubnetId(null);
+                }}
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                    : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
-                {subnets.length}
-              </span>
-            </button>
+                <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+                <span>Dashboard</span>
+              </button>
+            )}
+
+            {canSeeSubnets && (
+              <button
+                id="nav-tab-subnets"
+                onClick={() => {
+                  setActiveTab('subnets');
+                  setSelectedSubnetId(null);
+                }}
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'subnets'
+                    ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                    : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <Network className="w-3.5 h-3.5 shrink-0" />
+                <span>Subnets<span className="hidden xl:inline"> &amp; IPs</span></span>
+                <span
+                  className={`text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                    activeTab === 'subnets'
+                      ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
+                      : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+                  }`}
+                >
+                  {subnets.length}
+                </span>
+              </button>
+            )}
 
             {canSeeUsers && (
               <button
                 id="nav-tab-users"
                 onClick={() => setActiveTab('users')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'users'
                     ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
                     : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
@@ -192,14 +210,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="nav-tab-ldap"
                 onClick={() => setActiveTab('ldap_settings')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'ldap_settings'
                     ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
                     : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
                 <Server className="w-3.5 h-3.5 shrink-0" />
-                <span>Active Directory</span>
+                <span><span className="hidden xl:inline">Active </span>Directory</span>
                 <span
                   className={`w-2 h-2 rounded-full shrink-0 ${
                     ldapConfig.enabled ? 'bg-emerald-500' : 'bg-neutral-400 dark:bg-neutral-600'
@@ -213,22 +231,46 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="nav-tab-device-classifications"
                 onClick={() => setActiveTab('device_classifications')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'device_classifications'
                     ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
                     : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 shrink-0" />
-                <span>Device Types</span>
+                <span><span className="hidden xl:inline">Device </span>Types</span>
                 <span
-                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                  className={`text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
                     activeTab === 'device_classifications'
                       ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
-                    : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+                      : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
                   }`}
                 >
                   {deviceClassifications.length}
+                </span>
+              </button>
+            )}
+
+            {canSeeProjects && (
+              <button
+                id="nav-tab-projects"
+                onClick={() => setActiveTab('projects')}
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === 'projects'
+                    ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                    : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Projects</span>
+                <span
+                  className={`text-[10px] sm:text-[11px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                    activeTab === 'projects'
+                      ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
+                      : 'bg-black/5 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+                  }`}
+                >
+                  {projects.length}
                 </span>
               </button>
             )}
@@ -237,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="nav-tab-audit"
                 onClick={() => setActiveTab('audit')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'audit'
                     ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
                     : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
@@ -252,27 +294,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="nav-tab-backup-restore"
                 onClick={() => setActiveTab('backup_restore')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'backup_restore'
                     ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
                     : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
               >
                 <Database className="w-3.5 h-3.5 shrink-0" />
-                <span>Backup &amp; Restore</span>
+                <span>Backup<span className="hidden xl:inline"> &amp; Restore</span></span>
               </button>
             )}
           </nav>
 
           {/* Right User & Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Dark / Light Mode Toggle */}
             <button
               id="btn-theme-toggle"
               onClick={toggleTheme}
               title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
               aria-label="Toggle theme"
-              className="p-2 rounded-lg border border-[#ebebeb] dark:border-[#262626] bg-white dark:bg-[#111111] text-[#171717] dark:text-[#ededed] hover:bg-[#f4f4f5] dark:hover:bg-[#1c1c1c] transition-colors cursor-pointer shadow-xs"
+              className="p-1.5 sm:p-2 rounded-lg border border-[#ebebeb] dark:border-[#262626] bg-white dark:bg-[#111111] text-[#171717] dark:text-[#ededed] hover:bg-[#f4f4f5] dark:hover:bg-[#1c1c1c] transition-colors cursor-pointer shadow-xs"
             >
               {theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400" />
@@ -286,13 +328,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   id="user-menu-button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#111111] hover:bg-[#f4f4f5] dark:hover:bg-[#1c1c1c] border border-[#ebebeb] dark:border-[#262626] text-left transition-all shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#111111] hover:bg-[#f4f4f5] dark:hover:bg-[#1c1c1c] border border-[#ebebeb] dark:border-[#262626] text-left transition-all shadow-xs cursor-pointer"
                 >
                   <div className="w-6 h-6 rounded-md bg-[#171717] text-white dark:bg-[#ededed] dark:text-black flex items-center justify-center font-bold text-xs shrink-0">
                     {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-medium text-[#171717] dark:text-[#ededed] truncate max-w-[120px]">
+                  <div className="hidden xl:flex flex-col text-left">
+                    <span className="text-xs font-medium text-[#171717] dark:text-[#ededed] truncate max-w-[110px]">
                       {currentUser.fullName || currentUser.username}
                     </span>
                     <span className="text-[10px] text-[#8f8f8f] dark:text-[#737373] leading-none">
@@ -300,12 +342,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                   </div>
                   {currentUser.authType === 'ldap_ad' ? (
-                    <span className="text-[10px] px-1 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium flex items-center gap-0.5 shrink-0">
+                    <span className="hidden 2xl:flex text-[10px] px-1 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium items-center gap-0.5 shrink-0">
                       <Server className="w-2.5 h-2.5" />
                       AD
                     </span>
                   ) : (
-                    <span className="text-[10px] px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 font-medium flex items-center gap-0.5 shrink-0">
+                    <span className="hidden 2xl:flex text-[10px] px-1 py-0.2 rounded bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 font-medium items-center gap-0.5 shrink-0">
                       <Lock className="w-2.5 h-2.5" />
                       Local
                     </span>
@@ -316,6 +358,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   />
                 </button>
+
 
                 {/* User Profile Popover */}
                 {userMenuOpen && (
@@ -416,98 +459,338 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Sign In</span>
               </button>
             )}
+
+            {/* Mobile Menu Hamburger Toggle Button */}
+            <button
+              type="button"
+              id="btn-mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-1.5 sm:p-2 rounded-lg border border-[#ebebeb] dark:border-[#262626] bg-white dark:bg-[#111111] text-[#171717] dark:text-[#ededed] hover:bg-[#f4f4f5] dark:hover:bg-[#1c1c1c] transition-colors cursor-pointer shadow-xs"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
-        {/* Mobile Navigation Bar */}
-        <div className="lg:hidden flex items-center gap-1 overflow-x-auto py-2 border-t border-[#ebebeb] dark:border-[#262626] scrollbar-none">
+        {/* Mobile / Small Screen Auto-adjusting horizontal scrollable strip (shown on screens < md) */}
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto py-2 px-1 border-t border-[#ebebeb] dark:border-[#262626] scrollbar-none">
           <button
             onClick={() => {
               setActiveTab('dashboard');
               setSelectedSubnetId(null);
             }}
-            className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
               activeTab === 'dashboard'
-                ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                : 'text-[#666666] dark:text-[#a1a1a1]'
+                ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
             }`}
           >
-            Dashboard
+            <LayoutDashboard className="w-3.5 h-3.5 shrink-0" />
+            <span>Dashboard</span>
           </button>
+
           <button
             onClick={() => {
               setActiveTab('subnets');
               setSelectedSubnetId(null);
             }}
-            className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
               activeTab === 'subnets'
-                ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                : 'text-[#666666] dark:text-[#a1a1a1]'
+                ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
             }`}
           >
-            Subnets
+            <Network className="w-3.5 h-3.5 shrink-0" />
+            <span>Subnets</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                activeTab === 'subnets'
+                  ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
+                  : 'bg-black/10 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+              }`}
+            >
+              {subnets.length}
+            </span>
           </button>
+
           {canSeeUsers && (
             <button
               onClick={() => setActiveTab('users')}
-              className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
                 activeTab === 'users'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                  : 'text-[#666666] dark:text-[#a1a1a1]'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
               }`}
             >
-              Users
+              <Users className="w-3.5 h-3.5 shrink-0" />
+              <span>Users</span>
             </button>
           )}
+
           {canSeeLdap && (
             <button
               onClick={() => setActiveTab('ldap_settings')}
-              className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
                 activeTab === 'ldap_settings'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                  : 'text-[#666666] dark:text-[#a1a1a1]'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
               }`}
             >
-              Active Directory
+              <Server className="w-3.5 h-3.5 shrink-0" />
+              <span>AD / LDAP</span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  ldapConfig.enabled ? 'bg-emerald-500' : 'bg-neutral-400 dark:bg-neutral-600'
+                }`}
+              />
             </button>
           )}
+
           {canSeeDeviceTypes && (
             <button
               onClick={() => setActiveTab('device_classifications')}
-              className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
                 activeTab === 'device_classifications'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                  : 'text-[#666666] dark:text-[#a1a1a1]'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
               }`}
             >
-              Device Types
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              <span>Devices</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                  activeTab === 'device_classifications'
+                    ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
+                    : 'bg-black/10 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+                }`}
+              >
+                {deviceClassifications.length}
+              </span>
             </button>
           )}
+
+          {canSeeProjects && (
+            <button
+              onClick={() => setActiveTab('projects')}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
+                activeTab === 'projects'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
+              }`}
+            >
+              <FolderGit2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Projects</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium ${
+                  activeTab === 'projects'
+                    ? 'bg-neutral-800 text-neutral-100 dark:bg-neutral-200 dark:text-neutral-900'
+                    : 'bg-black/10 dark:bg-white/10 text-[#666666] dark:text-[#a1a1a1]'
+                }`}
+              >
+                {projects.length}
+              </span>
+            </button>
+          )}
+
           {canSeeAudit && (
             <button
               onClick={() => setActiveTab('audit')}
-              className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
                 activeTab === 'audit'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                  : 'text-[#666666] dark:text-[#a1a1a1]'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
               }`}
             >
-              Audit
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              <span>Audit</span>
             </button>
           )}
+
           {canSeeBackup && (
             <button
               onClick={() => setActiveTab('backup_restore')}
-              className={`text-xs px-2.5 py-1 rounded-md whitespace-nowrap font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap font-medium transition-colors shrink-0 ${
                 activeTab === 'backup_restore'
-                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black'
-                  : 'text-[#666666] dark:text-[#a1a1a1]'
+                  ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                  : 'text-[#666666] dark:text-[#a1a1a1] hover:text-[#171717] dark:hover:text-white bg-black/5 dark:bg-white/5'
               }`}
             >
-              Backup
+              <Database className="w-3.5 h-3.5 shrink-0" />
+              <span>Backup</span>
             </button>
           )}
         </div>
+
+        {/* Mobile Dropdown Menu Drawer (when hamburger clicked) */}
+        {mobileMenuOpen && (
+          <div
+            ref={mobileMenuRef}
+            className="md:hidden border-t border-[#ebebeb] dark:border-[#262626] py-3 space-y-1 bg-white dark:bg-[#0c0c0c] animate-in fade-in slide-in-from-top-2 duration-150"
+          >
+            <div className="grid grid-cols-2 gap-1.5 pb-2">
+              {canSeeDashboard && (
+                <button
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setSelectedSubnetId(null);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 shrink-0" />
+                  <span>Dashboard</span>
+                </button>
+              )}
+
+              {canSeeSubnets && (
+                <button
+                  onClick={() => {
+                    setActiveTab('subnets');
+                    setSelectedSubnetId(null);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'subnets'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Network className="w-4 h-4 shrink-0" />
+                    <span>Subnets</span>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono bg-black/10 dark:bg-white/10">
+                    {subnets.length}
+                  </span>
+                </button>
+              )}
+
+              {canSeeUsers && (
+                <button
+                  onClick={() => {
+                    setActiveTab('users');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'users'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span>Users</span>
+                </button>
+              )}
+
+              {canSeeLdap && (
+                <button
+                  onClick={() => {
+                    setActiveTab('ldap_settings');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'ldap_settings'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Server className="w-4 h-4 shrink-0" />
+                    <span>Active Directory</span>
+                  </div>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      ldapConfig.enabled ? 'bg-emerald-500' : 'bg-neutral-400'
+                    }`}
+                  />
+                </button>
+              )}
+
+              {canSeeDeviceTypes && (
+                <button
+                  onClick={() => {
+                    setActiveTab('device_classifications');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'device_classifications'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 shrink-0" />
+                    <span>Device Types</span>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono bg-black/10 dark:bg-white/10">
+                    {deviceClassifications.length}
+                  </span>
+                </button>
+              )}
+
+              {canSeeProjects && (
+                <button
+                  onClick={() => {
+                    setActiveTab('projects');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'projects'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderGit2 className="w-4 h-4 shrink-0" />
+                    <span>Projects</span>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono bg-black/10 dark:bg-white/10">
+                    {projects.length}
+                  </span>
+                </button>
+              )}
+
+              {canSeeAudit && (
+                <button
+                  onClick={() => {
+                    setActiveTab('audit');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'audit'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span>Audit Logs</span>
+                </button>
+              )}
+
+              {canSeeBackup && (
+                <button
+                  onClick={() => {
+                    setActiveTab('backup_restore');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'backup_restore'
+                      ? 'bg-[#171717] text-white dark:bg-[#ededed] dark:text-black shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#666666] dark:text-[#a1a1a1] border border-transparent hover:border-[#ebebeb] dark:hover:border-[#262626]'
+                  }`}
+                >
+                  <Database className="w-4 h-4 shrink-0" />
+                  <span>Backup &amp; Restore</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

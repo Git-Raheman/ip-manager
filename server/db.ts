@@ -8,8 +8,10 @@ import {
   INITIAL_LDAP_CONFIG,
   INITIAL_AUDIT_LOGS,
   INITIAL_DEVICE_CLASSIFICATIONS,
+  INITIAL_PROJECTS,
   INITIAL_AUDIT_SETTINGS,
   INITIAL_SNMP_CONFIG,
+  normalizePermissions,
 } from '../src/data/initialData.js';
 
 export interface IPAMDatabase {
@@ -21,6 +23,7 @@ export interface IPAMDatabase {
   ldapConfig: typeof INITIAL_LDAP_CONFIG;
   auditLogs: typeof INITIAL_AUDIT_LOGS;
   deviceClassifications: typeof INITIAL_DEVICE_CLASSIFICATIONS;
+  projects: typeof INITIAL_PROJECTS;
   auditSettings: typeof INITIAL_AUDIT_SETTINGS;
   snmpConfig: typeof INITIAL_SNMP_CONFIG;
 }
@@ -43,6 +46,7 @@ export function getFreshBaselineDatabase(): IPAMDatabase {
     ldapConfig: INITIAL_LDAP_CONFIG,
     auditLogs: INITIAL_AUDIT_LOGS,
     deviceClassifications: INITIAL_DEVICE_CLASSIFICATIONS,
+    projects: INITIAL_PROJECTS,
     auditSettings: INITIAL_AUDIT_SETTINGS,
     snmpConfig: INITIAL_SNMP_CONFIG,
   };
@@ -89,25 +93,13 @@ function normalizeState(data: IPAMDatabase): IPAMDatabase {
           ...userList[adminIndex],
           role: 'super_admin',
           status: 'active',
-          permissions: {
-            ...userList[adminIndex].permissions,
-            manageUsers: true,
-            manageAuthSettings: true,
-            manageDeviceClassifications: true,
-            manageAuditSettings: true,
-            clearAuditLogs: true,
-            createSubnet: true,
-            editSubnet: true,
-            deleteSubnet: true,
-            allocateIP: true,
-            releaseIP: true,
-            editIP: true,
-            viewAuditLogs: true,
-            exportData: true,
-          },
+          permissions: normalizePermissions(userList[adminIndex].permissions, 'super_admin'),
         };
       }
-      return userList;
+      return userList.map((u: any) => ({
+        ...u,
+        permissions: normalizePermissions(u.permissions, u.role || 'operator'),
+      }));
     })(),
     auditLogs: Array.isArray(state.auditLogs) ? state.auditLogs : [],
     deviceClassifications: (() => {
@@ -127,9 +119,32 @@ function normalizeState(data: IPAMDatabase): IPAMDatabase {
         updatedAt: dc?.updatedAt || new Date().toISOString(),
       }));
     })(),
+    projects: (() => {
+      const list = Array.isArray(state.projects) ? state.projects : INITIAL_PROJECTS;
+      return list.map((p: any) => ({
+        ...p,
+        id: typeof p?.id === 'string' ? p.id : `prj-${(p?.code || 'custom').toLowerCase()}`,
+        name: typeof p?.name === 'string' ? p.name : 'Unnamed Project',
+        code: typeof p?.code === 'string' ? p.code : 'PRJ',
+        category: typeof p?.category === 'string' ? p.category : 'General',
+        description: typeof p?.description === 'string' ? p.description : '',
+        notes: typeof p?.notes === 'string' ? p.notes : '',
+        tags: Array.isArray(p?.tags) ? p.tags : [],
+        icon: typeof p?.icon === 'string' ? p.icon : 'folder',
+        color: typeof p?.color === 'string' ? p.color : 'indigo',
+        status: p?.status === 'archived' ? 'archived' : 'active',
+        owner: typeof p?.owner === 'string' ? p.owner : '',
+        department: typeof p?.department === 'string' ? p.department : '',
+        createdAt: p?.createdAt || new Date().toISOString(),
+        updatedAt: p?.updatedAt || new Date().toISOString(),
+      }));
+    })(),
     snmpConfig: state.snmpConfig && typeof state.snmpConfig === 'object'
       ? { ...INITIAL_SNMP_CONFIG, ...state.snmpConfig }
       : INITIAL_SNMP_CONFIG,
+    auditSettings: state.auditSettings && typeof state.auditSettings === 'object'
+      ? { ...INITIAL_AUDIT_SETTINGS, ...state.auditSettings }
+      : INITIAL_AUDIT_SETTINGS,
   } as IPAMDatabase;
 }
 
@@ -202,9 +217,9 @@ class DatabaseManager {
           ) || parsed.subnets.some((s: any) => s.id === 'subnet-hq' || s.id === 'subnet-prod');
 
           if (!hasLegacyDemo) {
-            // Ensure admin password is 'admin'
+            // Ensure admin password exists
             parsed.users = parsed.users.map((u: any) =>
-              u.username === 'admin' ? { ...u, localPassword: 'admin' } : u
+              u.username === 'admin' ? { ...u, localPassword: u.localPassword || 'admin' } : u
             );
             // Ensure baseline users exist
             for (const u of INITIAL_USERS) {

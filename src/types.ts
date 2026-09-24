@@ -5,20 +5,31 @@ export type UserRole = 'super_admin' | 'network_admin' | 'operator' | 'auditor';
 export type UserStatus = 'active' | 'disabled';
 
 export interface GranularPermissions {
+  // Navigation & Core Module Access (AWS IAM View / Access Policies)
+  viewDashboard: boolean;
+  viewSubnets: boolean;
   manageUsers: boolean;
   manageAuthSettings: boolean;
   manageDeviceClassifications: boolean;
-  manageAuditSettings: boolean;
-  clearAuditLogs: boolean;
+  manageProjects: boolean;
+  viewAuditLogs: boolean;
+  manageBackupRestore: boolean;
+
+  // Subnet & IP Operational Actions
   createSubnet: boolean;
   editSubnet: boolean;
   deleteSubnet: boolean;
   allocateIP: boolean;
   releaseIP: boolean;
   editIP: boolean;
-  viewAuditLogs: boolean;
+  scanSubnet: boolean;
+
+  // Governance & System Actions
+  manageAuditSettings: boolean;
+  clearAuditLogs: boolean;
   exportData: boolean;
-  // Subnet access restriction: empty array means access to all subnets
+
+  // Resource Policy: Subnet Scoping (empty array = global access to all subnets)
   allowedSubnetIds: string[];
 }
 
@@ -83,9 +94,27 @@ export interface DeviceClassification {
   updatedAt: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+  description: string;
+  color: string;
+  icon?: string;
+  status: 'active' | 'planning' | 'maintenance' | 'archived';
+  owner?: string;
+  department?: string;
+  notes?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IPRecord {
   id: string;
   ip: string;
+  publicIp?: string; // Optional Public / External / WAN / Cloud Elastic IP
   subnetId: string;
   status: IPStatus;
   hostname?: string;
@@ -94,6 +123,7 @@ export interface IPRecord {
   owner?: string;
   department?: string;
   notes?: string;
+  projectId?: string;
   allocatedAt?: string;
   allocatedBy?: string; // Username
   lastPingStatus?: 'online' | 'offline' | 'unreachable' | 'unknown';
@@ -176,6 +206,7 @@ export interface IPAMBackupData {
     totalIPs: number;
     totalUsers: number;
     totalDeviceClassifications: number;
+    totalProjects?: number;
     totalAuditLogs: number;
     ldapConfigured: boolean;
     hasSnmpConfig?: boolean;
@@ -186,6 +217,7 @@ export interface IPAMBackupData {
     users: User[];
     ldapConfig: LdapConfig;
     deviceClassifications: DeviceClassification[];
+    projects?: Project[];
     auditLogs: AuditLog[];
     auditSettings: AuditSettings;
     snmpConfig?: SnmpMonitoringConfig;
@@ -198,6 +230,7 @@ export interface RestoreOptions {
   restoreUsers: boolean;
   restoreLdap: boolean;
   restoreDeviceClasses: boolean;
+  restoreProjects?: boolean;
   restoreAuditLogs: boolean;
   restoreAuditSettings: boolean;
   restoreSnmpConfig?: boolean;

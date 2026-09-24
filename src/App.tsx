@@ -13,6 +13,7 @@ import { SubnetDetailView } from './components/SubnetDetailView';
 import { UserManagement } from './components/UserManagement';
 import { LdapSettingsView } from './components/LdapSettingsModal';
 import { DeviceClassificationView } from './components/DeviceClassificationView';
+import { ProjectsView } from './components/ProjectsView';
 import { AuditLogsView } from './components/AuditLogsView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginModal } from './components/LoginModal';
@@ -34,36 +35,51 @@ const IPAMAppContent: React.FC = () => {
   const [targetSubnetIp, setTargetSubnetIp] = useState<string | undefined>(undefined);
   const [targetSubnetAction, setTargetSubnetAction] = useState<'view' | 'edit' | 'allocate' | undefined>(undefined);
 
-  // Granular Tab Permissions based on RBAC matrix & explicitly assigned user permissions
+  // Granular Tab Permissions based on AWS IAM style policies & explicitly assigned user permissions
   const isSuperAdmin = currentUser?.role === 'super_admin';
+  const canSeeDashboard = Boolean(isSuperAdmin || currentUser?.permissions?.viewDashboard !== false);
+  const canSeeSubnets = Boolean(isSuperAdmin || currentUser?.permissions?.viewSubnets !== false);
   const canSeeUsers = Boolean(isSuperAdmin || currentUser?.permissions?.manageUsers);
   const canSeeLdap = Boolean(isSuperAdmin || currentUser?.permissions?.manageAuthSettings);
-  const canSeeDeviceTypes = Boolean(
-    isSuperAdmin ||
-      (currentUser?.permissions?.manageDeviceClassifications && currentUser?.role !== 'auditor') ||
-      (currentUser?.role === 'network_admin' && currentUser?.permissions?.manageDeviceClassifications !== false)
-  );
-  const canSeeAudit = Boolean(
-    isSuperAdmin ||
-      currentUser?.permissions?.viewAuditLogs
-  );
-  const canSeeBackup = Boolean(isSuperAdmin);
+  const canSeeDeviceTypes = Boolean(isSuperAdmin || currentUser?.permissions?.manageDeviceClassifications);
+  const canSeeProjects = Boolean(isSuperAdmin || currentUser?.permissions?.manageProjects);
+  const canSeeAudit = Boolean(isSuperAdmin || currentUser?.permissions?.viewAuditLogs);
+  const canSeeBackup = Boolean(isSuperAdmin || currentUser?.permissions?.manageBackupRestore);
+
+  // Determine first available fallback tab if current active tab is denied
+  const getFallbackTab = React.useCallback((): typeof activeTab => {
+    if (canSeeDashboard) return 'dashboard';
+    if (canSeeSubnets) return 'subnets';
+    if (canSeeProjects) return 'projects';
+    if (canSeeDeviceTypes) return 'device_classifications';
+    if (canSeeUsers) return 'users';
+    if (canSeeLdap) return 'ldap_settings';
+    if (canSeeAudit) return 'audit';
+    if (canSeeBackup) return 'backup_restore';
+    return 'dashboard';
+  }, [canSeeDashboard, canSeeSubnets, canSeeProjects, canSeeDeviceTypes, canSeeUsers, canSeeLdap, canSeeAudit, canSeeBackup]);
 
   // Auto-redirect away from unauthorized tabs
   React.useEffect(() => {
     if (!currentUser) return;
-    if (activeTab === 'users' && !canSeeUsers) {
-      setActiveTab('dashboard');
+    if (activeTab === 'dashboard' && !canSeeDashboard) {
+      setActiveTab(getFallbackTab());
+    } else if (activeTab === 'subnets' && !canSeeSubnets) {
+      setActiveTab(getFallbackTab());
+    } else if (activeTab === 'users' && !canSeeUsers) {
+      setActiveTab(getFallbackTab());
     } else if (activeTab === 'ldap_settings' && !canSeeLdap) {
-      setActiveTab('dashboard');
+      setActiveTab(getFallbackTab());
     } else if (activeTab === 'device_classifications' && !canSeeDeviceTypes) {
-      setActiveTab('dashboard');
+      setActiveTab(getFallbackTab());
+    } else if (activeTab === 'projects' && !canSeeProjects) {
+      setActiveTab(getFallbackTab());
     } else if (activeTab === 'audit' && !canSeeAudit) {
-      setActiveTab('dashboard');
+      setActiveTab(getFallbackTab());
     } else if (activeTab === 'backup_restore' && !canSeeBackup) {
-      setActiveTab('dashboard');
+      setActiveTab(getFallbackTab());
     }
-  }, [currentUser?.role, activeTab, canSeeUsers, canSeeLdap, canSeeDeviceTypes, canSeeAudit, canSeeBackup, setActiveTab]);
+  }, [currentUser?.role, activeTab, canSeeDashboard, canSeeSubnets, canSeeUsers, canSeeLdap, canSeeDeviceTypes, canSeeProjects, canSeeAudit, canSeeBackup, getFallbackTab, setActiveTab]);
 
   // If user is not authenticated, render the dedicated full-screen login portal
   if (!currentUser) {
@@ -77,7 +93,7 @@ const IPAMAppContent: React.FC = () => {
     currentUser.permissions.allowedSubnetIds.length > 0;
 
   return (
-    <div className="min-h-screen w-full bg-[#fafafa] text-[#171717] dark:bg-[#000000] dark:text-[#ededed] flex flex-col font-sans selection:bg-[#0070f3] selection:text-white overflow-x-hidden transition-colors">
+    <div className="min-h-screen w-full bg-[#fafafa] text-[#171717] dark:bg-[#000000] dark:text-[#ededed] flex flex-col font-sans selection:bg-[#0070f3] selection:text-white overflow-x-clip transition-colors">
       {/* Top Navigation */}
       <Navbar
         onOpenLogin={() => setLoginModalOpen(true)}
@@ -107,43 +123,51 @@ const IPAMAppContent: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === 'dashboard' && (
-          <DashboardView
-            onSelectSubnet={(id, ip, action) => {
-              setSelectedSubnetId(id);
-              setTargetSubnetIp(ip);
-              setTargetSubnetAction(action);
-              setActiveTab('subnets');
-            }}
-            onNavigateTab={(tab) => {
-              setActiveTab(tab);
-              setSelectedSubnetId(null);
-              setTargetSubnetIp(undefined);
-              setTargetSubnetAction(undefined);
-            }}
-          />
-        )}
-
-        {activeTab === 'subnets' && (
-          selectedSubnetId ? (
-            <SubnetDetailView
-              subnetId={selectedSubnetId}
-              targetIp={targetSubnetIp}
-              initialAction={targetSubnetAction}
-              onBack={() => {
+          canSeeDashboard ? (
+            <DashboardView
+              onSelectSubnet={(id, ip, action) => {
+                setSelectedSubnetId(id);
+                setTargetSubnetIp(ip);
+                setTargetSubnetAction(action);
+                setActiveTab('subnets');
+              }}
+              onNavigateTab={(tab) => {
+                setActiveTab(tab);
                 setSelectedSubnetId(null);
                 setTargetSubnetIp(undefined);
                 setTargetSubnetAction(undefined);
               }}
             />
           ) : (
-            <SubnetList
-              onSelectSubnet={(id) => {
-                setSelectedSubnetId(id);
-                setTargetSubnetIp(undefined);
-                setTargetSubnetAction(undefined);
-              }}
-              onOpenDeviceClassifications={() => setActiveTab('device_classifications')}
-            />
+            <AccessDenied tabName="Dashboard & Metrics" />
+          )
+        )}
+
+        {activeTab === 'subnets' && (
+          canSeeSubnets ? (
+            selectedSubnetId ? (
+              <SubnetDetailView
+                subnetId={selectedSubnetId}
+                targetIp={targetSubnetIp}
+                initialAction={targetSubnetAction}
+                onBack={() => {
+                  setSelectedSubnetId(null);
+                  setTargetSubnetIp(undefined);
+                  setTargetSubnetAction(undefined);
+                }}
+              />
+            ) : (
+              <SubnetList
+                onSelectSubnet={(id) => {
+                  setSelectedSubnetId(id);
+                  setTargetSubnetIp(undefined);
+                  setTargetSubnetAction(undefined);
+                }}
+                onOpenDeviceClassifications={() => setActiveTab('device_classifications')}
+              />
+            )
+          ) : (
+            <AccessDenied tabName="Subnets & IP Addresses" />
           )
         )}
 
@@ -152,6 +176,7 @@ const IPAMAppContent: React.FC = () => {
         {activeTab === 'ldap_settings' && (canSeeLdap ? <LdapSettingsView /> : <AccessDenied tabName="Active Directory / LDAP Settings" />)}
 
         {activeTab === 'device_classifications' && (canSeeDeviceTypes ? <DeviceClassificationView /> : <AccessDenied tabName="Device Types & Classifications" />)}
+        {activeTab === 'projects' && (canSeeProjects ? <ProjectsView /> : <AccessDenied tabName="Projects & Workload Allocation" />)}
 
         {activeTab === 'audit' && (canSeeAudit ? <AuditLogsView /> : <AccessDenied tabName="Security Audit Logs" />)}
         {activeTab === 'backup_restore' && (canSeeBackup ? <BackupRestoreView /> : <AccessDenied tabName="Backup & Restore" />)}

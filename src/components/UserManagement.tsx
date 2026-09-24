@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useIPAM } from '../context/IPAMContext';
-import { DEFAULT_PERMISSIONS } from '../data/initialData';
+import { DEFAULT_PERMISSIONS, normalizePermissions } from '../data/initialData';
 import { User, UserRole, AuthType, GranularPermissions } from '../types';
 import {
   Users,
@@ -23,6 +23,17 @@ import {
   HelpCircle,
   ChevronRight,
   ShieldAlert,
+  LayoutDashboard,
+  Network,
+  Sliders,
+  Database,
+  FolderKanban,
+  FileText,
+  Sparkles,
+  CheckCheck,
+  Ban,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
@@ -47,6 +58,8 @@ export const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleteUserError, setDeleteUserError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -72,7 +85,7 @@ export const UserManagement: React.FC = () => {
     ldapUpn: '',
     role: 'operator',
     status: 'active',
-    permissions: { ...DEFAULT_PERMISSIONS.operator },
+    permissions: normalizePermissions(DEFAULT_PERMISSIONS.operator, 'operator'),
   });
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -127,7 +140,7 @@ export const UserManagement: React.FC = () => {
       ldapUpn: '',
       role: 'operator',
       status: 'active',
-      permissions: { ...DEFAULT_PERMISSIONS.operator, allowedSubnetIds: [] },
+      permissions: normalizePermissions(DEFAULT_PERMISSIONS.operator, 'operator'),
     });
     setFormError(null);
     setModalOpen(true);
@@ -147,7 +160,7 @@ export const UserManagement: React.FC = () => {
       ldapUpn: user.ldapUpn || '',
       role: user.role,
       status: user.status,
-      permissions: { ...user.permissions },
+      permissions: normalizePermissions(user.permissions, user.role),
     });
     setFormError(null);
     setModalOpen(true);
@@ -155,13 +168,13 @@ export const UserManagement: React.FC = () => {
 
   // Role change presets
   const handleRoleChange = (role: UserRole) => {
-    const preset = DEFAULT_PERMISSIONS[role] || DEFAULT_PERMISSIONS.operator;
+    const preset = normalizePermissions(DEFAULT_PERMISSIONS[role] || DEFAULT_PERMISSIONS.operator, role);
     setFormData((prev) => ({
       ...prev,
       role,
       permissions: {
         ...preset,
-        allowedSubnetIds: prev.permissions.allowedSubnetIds,
+        allowedSubnetIds: prev.permissions.allowedSubnetIds || [],
       },
     }));
   };
@@ -174,6 +187,72 @@ export const UserManagement: React.FC = () => {
       permissions: {
         ...prev.permissions,
         [key]: !prev.permissions[key],
+      },
+    }));
+  };
+
+  // Quick IAM Policy Actions
+  const handleAllowAllPermissions = () => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: {
+        viewDashboard: true,
+        viewSubnets: true,
+        manageUsers: true,
+        manageAuthSettings: true,
+        manageDeviceClassifications: true,
+        manageProjects: true,
+        viewAuditLogs: true,
+        manageBackupRestore: true,
+        createSubnet: true,
+        editSubnet: true,
+        deleteSubnet: true,
+        allocateIP: true,
+        releaseIP: true,
+        editIP: true,
+        scanSubnet: true,
+        manageAuditSettings: true,
+        clearAuditLogs: true,
+        exportData: true,
+        allowedSubnetIds: prev.permissions.allowedSubnetIds || [],
+      },
+    }));
+  };
+
+  const handleDenyAllPermissions = () => {
+    setFormData((prev) => ({
+      ...prev,
+      permissions: {
+        viewDashboard: false,
+        viewSubnets: false,
+        manageUsers: false,
+        manageAuthSettings: false,
+        manageDeviceClassifications: false,
+        manageProjects: false,
+        viewAuditLogs: false,
+        manageBackupRestore: false,
+        createSubnet: false,
+        editSubnet: false,
+        deleteSubnet: false,
+        allocateIP: false,
+        releaseIP: false,
+        editIP: false,
+        scanSubnet: false,
+        manageAuditSettings: false,
+        clearAuditLogs: false,
+        exportData: false,
+        allowedSubnetIds: prev.permissions.allowedSubnetIds || [],
+      },
+    }));
+  };
+
+  const handleApplyRoleDefaults = () => {
+    const preset = normalizePermissions(DEFAULT_PERMISSIONS[formData.role] || DEFAULT_PERMISSIONS.operator, formData.role);
+    setFormData((prev) => ({
+      ...prev,
+      permissions: {
+        ...preset,
+        allowedSubnetIds: prev.permissions.allowedSubnetIds || [],
       },
     }));
   };
@@ -196,7 +275,7 @@ export const UserManagement: React.FC = () => {
   };
 
   // Form Submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -231,47 +310,54 @@ export const UserManagement: React.FC = () => {
       }
     }
 
-    if (editingUser) {
-      const updates: Partial<User> = {
-        fullName: formData.fullName,
-        email: formData.email,
-        department: formData.department,
-        authType: formData.authType,
-        ldapUpn: formData.authType === 'ldap_ad' ? formData.ldapUpn : undefined,
-        role: formData.role,
-        status: formData.status,
-        permissions: formData.permissions,
-      };
+    setIsSaving(true);
+    try {
+      if (editingUser) {
+        const updates: Partial<User> = {
+          fullName: formData.fullName,
+          email: formData.email,
+          department: formData.department,
+          authType: formData.authType,
+          ldapUpn: formData.authType === 'ldap_ad' ? formData.ldapUpn : undefined,
+          role: formData.role,
+          status: formData.status,
+          permissions: formData.permissions,
+        };
 
-      if (formData.authType === 'local' && formData.localPassword.trim()) {
-        updates.localPassword = formData.localPassword.trim();
+        if (formData.authType === 'local' && formData.localPassword.trim()) {
+          updates.localPassword = formData.localPassword.trim();
+        }
+
+        const res = await updateUser(editingUser.id, updates);
+        if (!res.success) {
+          setFormError(res.message);
+          return;
+        }
+      } else {
+        const res = await createUser({
+          username: formData.username.trim(),
+          fullName: formData.fullName.trim(),
+          email: formData.email.trim() || `${formData.username}@corp.internal`,
+          department: formData.department,
+          authType: formData.authType,
+          localPassword: formData.authType === 'local' ? formData.localPassword : undefined,
+          ldapUpn: formData.authType === 'ldap_ad' ? formData.ldapUpn : undefined,
+          role: formData.role,
+          status: formData.status,
+          permissions: formData.permissions,
+        });
+        if (!res.success) {
+          setFormError(res.message);
+          return;
+        }
       }
 
-      const res = updateUser(editingUser.id, updates);
-      if (!res.success) {
-        setFormError(res.message);
-        return;
-      }
-    } else {
-      const res = createUser({
-        username: formData.username.trim(),
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim() || `${formData.username}@corp.internal`,
-        department: formData.department,
-        authType: formData.authType,
-        localPassword: formData.authType === 'local' ? formData.localPassword : undefined,
-        ldapUpn: formData.authType === 'ldap_ad' ? formData.ldapUpn : undefined,
-        role: formData.role,
-        status: formData.status,
-        permissions: formData.permissions,
-      });
-      if (!res.success) {
-        setFormError(res.message);
-        return;
-      }
+      setModalOpen(false);
+    } catch (err: any) {
+      setFormError(err?.message || 'An unexpected error occurred while saving.');
+    } finally {
+      setIsSaving(false);
     }
-
-    setModalOpen(false);
   };
 
   // Simulated Test Auth for a specific user
@@ -558,50 +644,65 @@ export const UserManagement: React.FC = () => {
 
                       {/* Role & Granular RBAC */}
                       <td className="py-3 px-4">
-                        <div className="space-y-1.5">
-                          <div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold tracking-wide border ${getRoleBadge(u.role).className}`}
                             >
                               {getRoleBadge(u.role).label}
                             </span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                              {Object.entries(u.permissions || {}).filter(([k, v]) => k !== 'allowedSubnetIds' && Boolean(v)).length} / 17 allowed
+                            </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1 text-[10px]">
-                            {u.permissions.manageUsers && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                Users
-                              </span>
-                            )}
-                            {u.permissions.createSubnet && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                Subnets
-                              </span>
-                            )}
-                            {u.permissions.allocateIP && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                IPs
-                              </span>
-                            )}
-                            {u.permissions.manageDeviceClassifications && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                Devices
-                              </span>
-                            )}
-                            {u.permissions.manageAuthSettings && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                AD / LDAP
-                              </span>
-                            )}
-                            {u.permissions.viewAuditLogs && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                Audit
-                              </span>
-                            )}
-                            {u.permissions.exportData && (
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium whitespace-nowrap">
-                                Export
-                              </span>
-                            )}
+
+                          {/* Navigation Tabs Allowed */}
+                          <div>
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
+                              Visible Nav Tabs:
+                            </p>
+                            <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                              {u.permissions.viewDashboard !== false && (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 font-medium">
+                                  Dashboard
+                                </span>
+                              )}
+                              {u.permissions.viewSubnets !== false && (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 font-medium">
+                                  Subnets &amp; IPs
+                                </span>
+                              )}
+                              {u.permissions.manageUsers && (
+                                <span className="px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 font-medium">
+                                  Users
+                                </span>
+                              )}
+                              {u.permissions.manageAuthSettings && (
+                                <span className="px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 font-medium">
+                                  AD / LDAP
+                                </span>
+                              )}
+                              {u.permissions.manageDeviceClassifications && (
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 font-medium">
+                                  Devices
+                                </span>
+                              )}
+                              {u.permissions.manageProjects && (
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 font-medium">
+                                  Projects
+                                </span>
+                              )}
+                              {u.permissions.viewAuditLogs && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 font-medium">
+                                  Audit
+                                </span>
+                              )}
+                              {u.permissions.manageBackupRestore && (
+                                <span className="px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-950/70 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 font-medium">
+                                  Backup
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -951,45 +1052,317 @@ export const UserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Granular RBAC Permissions Matrix */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                  Granular Permissions Matrix
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
-                  {[
-                    { key: 'createSubnet', label: 'Create New Subnets / CIDRs' },
-                    { key: 'editSubnet', label: 'Edit Subnet Parameters' },
-                    { key: 'deleteSubnet', label: 'Delete Subnets & Ranges' },
-                    { key: 'allocateIP', label: 'Allocate & Reserve IP Addresses' },
-                    { key: 'releaseIP', label: 'Release / Reclaim Allocated IPs' },
-                    { key: 'editIP', label: 'Edit IP Device Info & DNS' },
-                    { key: 'manageUsers', label: 'Manage Users & Permissions' },
-                    { key: 'manageAuthSettings', label: 'Configure LDAP / AD Integration' },
-                    { key: 'manageDeviceClassifications', label: 'Manage Device Classifications' },
-                    { key: 'viewAuditLogs', label: 'Inspect Security Audit Logs' },
-                    { key: 'manageAuditSettings', label: 'Configure Audit Logging & Retention Policy' },
-                    { key: 'clearAuditLogs', label: 'Clear & Rotate Security Audit Logs' },
-                    { key: 'exportData', label: 'Export IPAM Data (CSV / JSON)' },
-                  ].map(({ key, label }) => {
-                    const isChecked = Boolean(formData.permissions[key as keyof GranularPermissions]);
-                    return (
-                      <label
-                        key={key}
-                        className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handlePermissionToggle(key as keyof GranularPermissions)}
-                          className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-blue-600 focus:ring-blue-500 h-4 w-4"
-                        />
-                        <span className={isChecked ? 'text-slate-900 dark:text-slate-200 font-medium' : 'text-slate-500 dark:text-slate-400'}>
-                          {label}
-                        </span>
-                      </label>
-                    );
-                  })}
+              {/* AWS IAM-STYLE GRANULAR PERMISSIONS & NAVIGATION POLICY STUDIO */}
+              <div className="space-y-4 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                        AWS IAM-Style Permissions &amp; Navigation Policies
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Grant or deny navigation bar visibility, module access, and operational action privileges.
+                    </p>
+                  </div>
+
+                  {/* IAM Quick Action Toolbar */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAllowAllPermissions}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-medium transition-colors cursor-pointer"
+                      title="Grant all module navigation and action permissions"
+                    >
+                      <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                      <span>Allow All (*)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDenyAllPermissions}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-[11px] font-medium transition-colors cursor-pointer"
+                      title="Revoke all optional permissions"
+                    >
+                      <Ban className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                      <span>Deny All</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyRoleDefaults}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
+                      title="Reset permissions to the default template for the selected role"
+                    >
+                      <RotateCcw className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                      <span>Role Preset</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Policy Service Group 1: Navigation & Module Visibility */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-800 dark:text-slate-300 flex items-center gap-1.5">
+                      <LayoutDashboard className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      1. Navigation Bar &amp; Module Visibility Policies
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">IAM: ui:View*</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      {
+                        key: 'viewDashboard',
+                        title: 'Dashboard & Analytics',
+                        action: 'ipam:ui:ViewDashboard',
+                        desc: 'Show Dashboard in navbar; view high-level metrics, IP charts, and stats.',
+                        icon: LayoutDashboard,
+                      },
+                      {
+                        key: 'viewSubnets',
+                        title: 'Subnets & IP Pool Registry',
+                        action: 'ipam:ui:ViewSubnets',
+                        desc: 'Show Subnets & IPs in navbar; view CIDR blocks, ranges, and IP lists.',
+                        icon: Network,
+                      },
+                      {
+                        key: 'manageUsers',
+                        title: 'User Management & IAM',
+                        action: 'iam:ui:ManageUsers',
+                        desc: 'Show Users in navbar; create, edit, and configure user accounts & policies.',
+                        icon: Users,
+                      },
+                      {
+                        key: 'manageAuthSettings',
+                        title: 'Active Directory / LDAP Auth',
+                        action: 'iam:ui:ManageAuthSettings',
+                        desc: 'Show Active Directory in navbar; configure LDAP bind servers & domain sync.',
+                        icon: Server,
+                      },
+                      {
+                        key: 'manageDeviceClassifications',
+                        title: 'Device Catalog & Types',
+                        action: 'ipam:ui:ManageDeviceClassifications',
+                        desc: 'Show Device Types in navbar; create custom hardware categories & roles.',
+                        icon: Sliders,
+                      },
+                      {
+                        key: 'manageProjects',
+                        title: 'Projects & Workloads',
+                        action: 'ipam:ui:ManageProjects',
+                        desc: 'Show Projects in navbar; organize subnet pools by team and cost centers.',
+                        icon: FolderKanban,
+                      },
+                      {
+                        key: 'viewAuditLogs',
+                        title: 'Audit Trail & Compliance',
+                        action: 'audit:ui:ViewAuditLogs',
+                        desc: 'Show Audit in navbar; inspect tamper-evident security activity records.',
+                        icon: FileText,
+                      },
+                      {
+                        key: 'manageBackupRestore',
+                        title: 'Backup & Disaster Recovery',
+                        action: 'system:ui:ManageBackupRestore',
+                        desc: 'Show Backup in navbar; perform database snapshots, export, and restores.',
+                        icon: Database,
+                      },
+                    ].map(({ key, title, action, desc, icon: Icon }) => {
+                      const isAllowed = Boolean(formData.permissions[key as keyof GranularPermissions]);
+                      return (
+                        <div
+                          key={key}
+                          onClick={() => handlePermissionToggle(key as keyof GranularPermissions)}
+                          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                            isAllowed
+                              ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700/80 shadow-xs'
+                              : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 opacity-80'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div
+                                className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isAllowed
+                                    ? 'bg-blue-600 text-white dark:bg-blue-500'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                }`}
+                              >
+                                <Icon className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-900 dark:text-white truncate text-[11px]">{title}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">{action}</p>
+                              </div>
+                            </div>
+
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shrink-0 border ${
+                                isAllowed
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : 'bg-rose-50 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800'
+                              }`}
+                            >
+                              {isAllowed ? 'ALLOW' : 'DENY'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">{desc}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Policy Service Group 2: Operational Actions */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-800 dark:text-slate-300 flex items-center gap-1.5">
+                      <Network className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      2. Subnet &amp; IP Operational Privileges
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">IAM: ipam:Operations</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      {
+                        key: 'createSubnet',
+                        title: 'Create Subnets / CIDRs',
+                        action: 'ipam:network:CreateSubnet',
+                        desc: 'Provision new IPv4/IPv6 CIDR ranges and subnet networks.',
+                      },
+                      {
+                        key: 'editSubnet',
+                        title: 'Modify Subnets & Ranges',
+                        action: 'ipam:network:EditSubnet',
+                        desc: 'Edit CIDRs, VLAN identifiers, DNS gateways, and thresholds.',
+                      },
+                      {
+                        key: 'deleteSubnet',
+                        title: 'Delete Subnets & Ranges',
+                        action: 'ipam:network:DeleteSubnet',
+                        desc: 'Decommission subnets and delete all associated IP allocations.',
+                      },
+                      {
+                        key: 'allocateIP',
+                        title: 'Allocate & Reserve IPs',
+                        action: 'ipam:address:AllocateIP',
+                        desc: 'Assign available IP addresses to servers, devices, and nodes.',
+                      },
+                      {
+                        key: 'editIP',
+                        title: 'Edit IP Device Info & DNS',
+                        action: 'ipam:address:EditIP',
+                        desc: 'Update hostnames, MAC addresses, device categories, and notes.',
+                      },
+                      {
+                        key: 'releaseIP',
+                        title: 'Release / Reclaim IPs',
+                        action: 'ipam:address:ReleaseIP',
+                        desc: 'Release allocated IPs back into available pool for reuse.',
+                      },
+                      {
+                        key: 'scanSubnet',
+                        title: 'Trigger Ping & ARP Scans',
+                        action: 'ipam:network:ScanSubnet',
+                        desc: 'Execute ICMP ping sweeps and automated IP host discovery.',
+                      },
+                    ].map(({ key, title, action, desc }) => {
+                      const isAllowed = Boolean(formData.permissions[key as keyof GranularPermissions]);
+                      return (
+                        <div
+                          key={key}
+                          onClick={() => handlePermissionToggle(key as keyof GranularPermissions)}
+                          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                            isAllowed
+                              ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700/80 shadow-xs'
+                              : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 opacity-80'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-900 dark:text-white truncate text-[11px]">{title}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">{action}</p>
+                            </div>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shrink-0 border ${
+                                isAllowed
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : 'bg-rose-50 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800'
+                              }`}
+                            >
+                              {isAllowed ? 'ALLOW' : 'DENY'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">{desc}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Policy Service Group 3: Governance, Compliance & Export */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-800 dark:text-slate-300 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      3. Governance, Security &amp; Data Policies
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">IAM: audit:* / system:*</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {[
+                      {
+                        key: 'manageAuditSettings',
+                        title: 'Audit Policy Settings',
+                        action: 'audit:policy:ManageAuditSettings',
+                        desc: 'Configure logging levels, retention windows, and alerts.',
+                      },
+                      {
+                        key: 'clearAuditLogs',
+                        title: 'Clear & Rotate Audit Logs',
+                        action: 'audit:policy:ClearAuditLogs',
+                        desc: 'Rotate, truncate, or purge security event audit trails.',
+                      },
+                      {
+                        key: 'exportData',
+                        title: 'Export IPAM Data',
+                        action: 'ipam:data:ExportData',
+                        desc: 'Download CSV and JSON exports of subnets and IP pools.',
+                      },
+                    ].map(({ key, title, action, desc }) => {
+                      const isAllowed = Boolean(formData.permissions[key as keyof GranularPermissions]);
+                      return (
+                        <div
+                          key={key}
+                          onClick={() => handlePermissionToggle(key as keyof GranularPermissions)}
+                          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                            isAllowed
+                              ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-700/80 shadow-xs'
+                              : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 opacity-80'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-900 dark:text-white truncate text-[11px]">{title}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">{action}</p>
+                            </div>
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shrink-0 border ${
+                                isAllowed
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : 'bg-rose-50 dark:bg-rose-950/80 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800'
+                              }`}
+                            >
+                              {isAllowed ? 'ALLOW' : 'DENY'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">{desc}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -1077,17 +1450,20 @@ export const UserManagement: React.FC = () => {
               <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   id="btn-submit-user-form"
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors cursor-pointer"
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {editingUser ? 'Save Changes' : 'Create User'}
+                  {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSaving ? 'Saving...' : editingUser ? 'Save Changes' : 'Create User'}</span>
                 </button>
               </div>
             </div>
@@ -1141,25 +1517,36 @@ export const UserManagement: React.FC = () => {
           <div className="flex items-center justify-end gap-3 mt-6">
             <button
               type="button"
+              disabled={isDeleting}
               onClick={() => setUserToDelete(null)}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               id="btn-confirm-delete-user"
               type="button"
-              onClick={() => {
-                const res = deleteUser(userToDelete.id);
-                if (!res.success) {
-                  setDeleteUserError(res.message);
-                  return;
+              disabled={isDeleting}
+              onClick={async () => {
+                setIsDeleting(true);
+                setDeleteUserError(null);
+                try {
+                  const res = await deleteUser(userToDelete.id);
+                  if (!res.success) {
+                    setDeleteUserError(res.message);
+                    return;
+                  }
+                  setUserToDelete(null);
+                } catch (err: any) {
+                  setDeleteUserError(err?.message || 'Failed to delete user account.');
+                } finally {
+                  setIsDeleting(false);
                 }
-                setUserToDelete(null);
               }}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
-              Delete User
+              {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{isDeleting ? 'Deleting...' : 'Delete User'}</span>
             </button>
           </div>
         </div>

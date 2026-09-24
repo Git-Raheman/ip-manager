@@ -31,6 +31,7 @@ export const BackupRestoreView: React.FC = () => {
     users,
     ldapConfig,
     deviceClassifications,
+    projects,
     auditLogs,
     auditSettings,
     createBackupPackage,
@@ -62,6 +63,7 @@ export const BackupRestoreView: React.FC = () => {
     restoreUsers: true,
     restoreLdap: true,
     restoreDeviceClasses: true,
+    restoreProjects: true,
     restoreAuditLogs: true,
     restoreAuditSettings: true,
     restoreSnmpConfig: true,
@@ -147,6 +149,28 @@ export const BackupRestoreView: React.FC = () => {
             }))
         : [];
 
+      const rawProjects = parsed.data?.projects || parsed.projects || [];
+      const normalizedProjects = Array.isArray(rawProjects)
+        ? rawProjects
+            .filter((p: any) => p && typeof p === 'object' && (p.name || p.code))
+            .map((p: any) => ({
+              id: p.id || `prj-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: String(p.name || 'Unnamed Project'),
+              code: String(p.code || 'PRJ').toUpperCase().trim(),
+              category: String(p.category || 'General'),
+              description: String(p.description || ''),
+              notes: String(p.notes || ''),
+              tags: Array.isArray(p.tags) ? p.tags : [],
+              icon: String(p.icon || 'folder'),
+              color: String(p.color || 'indigo'),
+              status: p.status === 'archived' ? ('archived' as const) : ('active' as const),
+              owner: String(p.owner || 'admin'),
+              department: String(p.department || 'IT'),
+              createdAt: p.createdAt || new Date().toISOString(),
+              updatedAt: p.updatedAt || new Date().toISOString(),
+            }))
+        : [];
+
       const rawSnmp = parsed.data?.snmpConfig || parsed.snmpConfig;
 
       const normalizedData: IPAMBackupData = {
@@ -163,6 +187,7 @@ export const BackupRestoreView: React.FC = () => {
           totalIPs: (parsed.data?.ips || parsed.ips || []).length,
           totalUsers: (parsed.data?.users || parsed.users || []).length,
           totalDeviceClassifications: normalizedClasses.length,
+          totalProjects: normalizedProjects.length,
           totalAuditLogs: (parsed.data?.auditLogs || parsed.auditLogs || []).length,
           ldapConfigured: !!(parsed.data?.ldapConfig?.enabled || parsed.ldapConfig?.enabled),
           hasSnmpConfig: !!rawSnmp,
@@ -173,6 +198,7 @@ export const BackupRestoreView: React.FC = () => {
           users: Array.isArray(parsed.data?.users) ? parsed.data.users : Array.isArray(parsed.users) ? parsed.users : [],
           ldapConfig: parsed.data?.ldapConfig || parsed.ldapConfig || ldapConfig,
           deviceClassifications: normalizedClasses,
+          projects: normalizedProjects,
           auditLogs: Array.isArray(parsed.data?.auditLogs) ? parsed.data.auditLogs : Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
           auditSettings: parsed.data?.auditSettings || parsed.auditSettings || auditSettings,
           snmpConfig: rawSnmp && typeof rawSnmp === 'object' ? rawSnmp : undefined,
@@ -238,7 +264,7 @@ export const BackupRestoreView: React.FC = () => {
           </div>
 
           {/* Quick Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 text-center">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">Subnets</span>
               <span className="text-lg font-bold text-cyan-600 dark:text-cyan-400">{subnets.length}</span>
@@ -246,6 +272,10 @@ export const BackupRestoreView: React.FC = () => {
             <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 text-center">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">Allocated IPs</span>
               <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{ips.length}</span>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 text-center">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">Projects</span>
+              <span className="text-lg font-bold text-violet-600 dark:text-violet-400">{projects.length}</span>
             </div>
             <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 text-center">
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">User Accounts</span>
@@ -318,6 +348,12 @@ export const BackupRestoreView: React.FC = () => {
                   <Sliders className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                   <div className="truncate">
                     <span className="font-semibold text-slate-900 dark:text-white">{ips.length}</span> IP Allocations
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-200">
+                  <Archive className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                  <div className="truncate">
+                    <span className="font-semibold text-slate-900 dark:text-white">{projects.length}</span> Projects &amp; Workloads
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-200">
@@ -575,6 +611,12 @@ export const BackupRestoreView: React.FC = () => {
                     </span>
                   </div>
                   <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-center">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Projects</span>
+                    <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
+                      {uploadedBackup.data.projects?.length || 0}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-center">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Users</span>
                     <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                       {uploadedBackup.data.users?.length || 0}
@@ -648,6 +690,15 @@ export const BackupRestoreView: React.FC = () => {
                         className="rounded text-blue-600 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
                       />
                       <span>IP Allocations</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={restoreOptions.restoreProjects !== false}
+                        onChange={(e) => setRestoreOptions({ ...restoreOptions, restoreProjects: e.target.checked })}
+                        className="rounded text-blue-600 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                      />
+                      <span>Projects &amp; Workloads</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -787,6 +838,13 @@ export const BackupRestoreView: React.FC = () => {
                 {restoreOptions.restoreIPs && (
                   <li>
                     <strong className="text-slate-900 dark:text-slate-200">{uploadedBackup.data.ips?.length || 0} IP Allocations</strong>
+                  </li>
+                )}
+                {restoreOptions.restoreProjects && (
+                  <li>
+                    <strong className="text-slate-900 dark:text-slate-200">
+                      {uploadedBackup.data.projects?.length || 0} Projects &amp; Workload Containers
+                    </strong>
                   </li>
                 )}
                 {restoreOptions.restoreUsers && (
